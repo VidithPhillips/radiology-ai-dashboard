@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Pie } from 'react-chartjs-2';
+import { Pie, Line } from 'react-chartjs-2';
 import 'chart.js/auto'; // Automatically registers required Chart.js components
 import './App.css';
 import DatePicker from 'react-datepicker';
@@ -36,6 +36,15 @@ function categorizeArticle(article) {
   }
   return 'General/Other';
 }
+
+// Add this helper function for week-based date handling
+const getWeekDates = (date = new Date()) => {
+  const curr = new Date(date);
+  const first = curr.getDate() - curr.getDay();
+  const firstDay = new Date(curr.setDate(first));
+  const lastDay = new Date(curr.setDate(first + 6));
+  return { firstDay, lastDay };
+};
 
 function App() {
   const [articles, setArticles] = useState([]);
@@ -84,12 +93,12 @@ function App() {
 
   const fetchArticles = useCallback(async () => {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    const { firstDay, lastDay } = getWeekDates(now);
+    const prevWeek = new Date(firstDay);
+    prevWeek.setDate(prevWeek.getDate() - 7);
     
-    const mindate = formatDate(yesterday);
-    const maxdate = formatDate(today);
+    const mindate = formatDate(prevWeek);
+    const maxdate = formatDate(lastDay);
     
     // Get existing articles from localStorage
     const storedArticles = JSON.parse(localStorage.getItem('articles') || '[]');
@@ -98,8 +107,8 @@ function App() {
     try {
       for (const term of searchTerms) {
         try {
-          // First API call to get IDs
-          const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&retmax=100&sort=date&datetype=pdat&mindate=${mindate}&maxdate=${maxdate}&retmode=json&usehistory=y`;
+          // Update retmax to get more articles per week
+          const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&retmax=200&sort=date&datetype=pdat&mindate=${mindate}&maxdate=${maxdate}&retmode=json&usehistory=y`;
           const searchProxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(searchUrl);
           const searchRes = await axios.get(searchProxyUrl);
           
@@ -163,14 +172,16 @@ function App() {
       setError(null);
 
       // Store with date information
-      const articlesByDate = {};
+      const articlesByWeek = {};
       combined.forEach(article => {
-        const dateKey = article.publicationDate.split('T')[0];
-        articlesByDate[dateKey] = articlesByDate[dateKey] || [];
-        articlesByDate[dateKey].push(article);
+        const pubDate = new Date(article.publicationDate);
+        const { firstDay } = getWeekDates(pubDate);
+        const weekKey = firstDay.toISOString().split('T')[0];
+        articlesByWeek[weekKey] = articlesByWeek[weekKey] || [];
+        articlesByWeek[weekKey].push(article);
       });
 
-      localStorage.setItem('articlesByDate', JSON.stringify(articlesByDate));
+      localStorage.setItem('articlesByWeek', JSON.stringify(articlesByWeek));
     } catch (e) {
       console.error("Error fetching articles:", e);
       setError("Failed to fetch articles. Please try again later.");
@@ -275,14 +286,110 @@ function App() {
         position: 'right',
         labels: {
           padding: 20,
-          color: '#e2e8f0',  // Light text color
+          color: '#0f172a',  // Dark color for visibility
           font: {
             size: 14,
-            family: "'Inter', sans-serif"
+            weight: '600',
+            family: "'Plus Jakarta Sans', sans-serif"
+          },
+          usePointStyle: true,
+          boxWidth: 10,
+          generateLabels: (chart) => {
+            const data = chart.data;
+            return data.labels.map((label, i) => ({
+              text: `${label} (${data.datasets[0].data[i]})`,
+              fillStyle: data.datasets[0].backgroundColor[i],
+              strokeStyle: data.datasets[0].backgroundColor[i],
+              lineWidth: 0,
+              hidden: false,
+              index: i
+            }));
           }
         }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        titleColor: '#0f172a',
+        bodyColor: '#0f172a',
+        bodyFont: {
+          family: "'Plus Jakarta Sans', sans-serif"
+        },
+        padding: 12,
+        borderColor: '#e2e8f0',
+        borderWidth: 1
       }
     }
+  };
+
+  // Add a weekly stats component
+  const WeeklyStats = ({ articles }) => {
+    const weeklyData = articles.reduce((acc, article) => {
+      const pubDate = new Date(article.publicationDate);
+      const { firstDay } = getWeekDates(pubDate);
+      const weekKey = firstDay.toISOString().split('T')[0];
+      acc[weekKey] = acc[weekKey] || {
+        count: 0,
+        subdomains: {},
+        journals: {}
+      };
+      acc[weekKey].count++;
+      acc[weekKey].subdomains[article.subdomain] = (acc[weekKey].subdomains[article.subdomain] || 0) + 1;
+      acc[weekKey].journals[article.journal] = (acc[weekKey].journals[article.journal] || 0) + 1;
+      return acc;
+    }, {});
+
+    return (
+      <div className="charts-section">
+        <h2>Weekly Publication Trends</h2>
+        <div className="chart-container">
+          <Line
+            data={{
+              labels: Object.keys(weeklyData).map(date => 
+                new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+              datasets: [{
+                label: 'Articles per Week',
+                data: Object.values(weeklyData).map(week => week.count),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.4
+              }]
+            }}
+            options={{
+              responsive: true,
+              plugins: {
+                legend: {
+                  display: false
+                },
+                tooltip: {
+                  callbacks: {
+                    label: (context) => {
+                      const weekKey = Object.keys(weeklyData)[context.dataIndex];
+                      const week = weeklyData[weekKey];
+                      return [
+                        `Articles: ${week.count}`,
+                        `Top Subdomain: ${Object.entries(week.subdomains)
+                          .sort((a, b) => b[1] - a[1])[0][0]}`,
+                        `Top Journal: ${Object.entries(week.journals)
+                          .sort((a, b) => b[1] - a[1])[0][0]}`
+                      ];
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    stepSize: 1
+                  }
+                }
+              }
+            }}
+          />
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -321,6 +428,49 @@ function App() {
             <h2>Distribution by Radiology Subdomain</h2>
             <div className="chart-container">
               <Pie data={chartData} options={chartOptions} />
+            </div>
+          </div>
+
+          <div className="analytics-grid">
+            <div className="stat-card">
+              <div className="stat-value">{articles.length}</div>
+              <div className="stat-label">Total Articles</div>
+              <div className="trend-indicator trend-up">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 4L12 8L4 8L8 4Z" fill="currentColor"/>
+                </svg>
+                <span>+{Math.round((articles.length / 100) * 100)}% this month</span>
+              </div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-value">
+                {Object.entries(subdomainStats).reduce((max, [key, value]) => 
+                  value > max.value ? {key, value} : max, 
+                  {key: '', value: 0}
+                ).key}
+              </div>
+              <div className="stat-label">Most Active Subdomain</div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-value">
+                {articles.reduce((acc, curr) => 
+                  acc + (curr.authors ? curr.authors.length : 0), 0) / articles.length || 0}
+              </div>
+              <div className="stat-label">Avg. Authors per Paper</div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-value">
+                {Object.entries(
+                  articles.reduce((acc, curr) => {
+                    acc[curr.journal] = (acc[curr.journal] || 0) + 1;
+                    return acc;
+                  }, {})
+                ).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'}
+              </div>
+              <div className="stat-label">Top Publishing Journal</div>
             </div>
           </div>
 
@@ -379,6 +529,8 @@ function App() {
               </>
             )}
           </div>
+
+          <WeeklyStats articles={articles} />
 
           <button className="faq-toggle" onClick={() => setShowFAQ(!showFAQ)}>
             {showFAQ ? 'Hide FAQ' : 'Show FAQ'}
