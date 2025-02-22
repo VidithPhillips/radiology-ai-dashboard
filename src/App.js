@@ -194,13 +194,13 @@ function App() {
     datasets: [{
       data: Object.values(subdomainStats),
       backgroundColor: [
-        '#FF6384',
-        '#36A2EB',
-        '#FFCE56',
-        '#4BC0C0',
-        '#9966FF',
-        '#FF9F40',
-        '#EA80FC'
+        '#3b82f6',  // Blue
+        '#6366f1',  // Indigo
+        '#8b5cf6',  // Purple
+        '#ec4899',  // Pink
+        '#f43f5e',  // Rose
+        '#f97316',  // Orange
+        '#eab308'   // Yellow
       ]
     }]
   };
@@ -212,7 +212,12 @@ function App() {
       legend: {
         position: 'right',
         labels: {
-          padding: 20
+          padding: 20,
+          color: '#e2e8f0',  // Light text color
+          font: {
+            size: 14,
+            family: "'Inter', sans-serif"
+          }
         }
       }
     }

@@ -1,14 +1,21 @@
 :root {
-  --bg-primary: #1a1b26;
-  --bg-secondary: #24283b;
-  --text-primary: #a9b1d6;
-  --text-secondary: #7aa2f7;
-  --accent-primary: #7aa2f7;
-  --accent-secondary: #bb9af7;
-  --error: #f7768e;
-  --success: #9ece6a;
-  --card-bg: #1f2335;
-  --hover-bg: #292e42;
+  /* Modern color palette with better contrast */
+  --bg-primary: #0f172a;    /* Darker background */
+  --bg-secondary: #1e293b;  /* Slightly lighter background */
+  --text-primary: #e2e8f0;  /* Light text for better readability */
+  --text-secondary: #94a3b8; /* Subdued text */
+  --accent-primary: #3b82f6;  /* Bright blue */
+  --accent-secondary: #6366f1; /* Indigo */
+  --error: #ef4444;          /* Red */
+  --success: #22c55e;        /* Green */
+  --card-bg: #1e293b;        /* Card background */
+  --hover-bg: #334155;       /* Hover state */
+  --border-color: #475569;   /* Border color */
+  
+  /* New gradient colors */
+  --gradient-start: #1e293b;
+  --gradient-end: #0f172a;
+  --glass-bg: rgba(30, 41, 59, 0.7);
 }
 
 body {
