@@ -10,7 +10,6 @@ import 'react-calendar-heatmap/dist/styles.css';
 import { Tooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
 import * as tf from '@tensorflow/tfjs';
-import { WordCloud } from 'react-wordcloud';
 
 // Define radiology subdomains and their related keywords
 const radiologySubdomains = {
@@ -481,29 +480,28 @@ function App() {
     );
   };
 
-  // Add new analytics components
+  // Instead, let's modify the analytics to show a simple topic distribution
   const TopicAnalysis = ({ articles }) => {
     const [topics, setTopics] = useState([]);
     
     useEffect(() => {
-      // Simple topic extraction using TF-IDF
-      const extractTopics = async () => {
+      const extractTopics = () => {
         const docs = articles.map(a => a.title + ' ' + a.abstract);
         const words = docs.join(' ').toLowerCase()
           .split(/\W+/)
-          .filter(w => w.length > 3 && !stopWords.includes(w));
+          .filter(w => w.length > 3);
         
         const wordFreq = {};
         words.forEach(w => {
           wordFreq[w] = (wordFreq[w] || 0) + 1;
         });
 
-        const wordcloudData = Object.entries(wordFreq)
-          .map(([text, value]) => ({ text, value }))
-          .sort((a, b) => b.value - a.value)
-          .slice(0, 50);
+        const topWords = Object.entries(wordFreq)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([text, value]) => ({ text, value }));
 
-        setTopics(wordcloudData);
+        setTopics(topWords);
       };
 
       extractTopics();
@@ -511,12 +509,14 @@ function App() {
 
     return (
       <div className="charts-section">
-        <h2>Research Topics</h2>
-        <div className="wordcloud-container">
-          <WordCloud
-            words={topics}
-            options={wordCloudOptions}
-          />
+        <h2>Top Research Topics</h2>
+        <div className="topics-grid">
+          {topics.map((topic, index) => (
+            <div key={index} className="topic-card">
+              <div className="topic-text">{topic.text}</div>
+              <div className="topic-value">{topic.value} mentions</div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -579,17 +579,6 @@ function App() {
         </div>
       </div>
     );
-  };
-
-  // Update wordcloud colors
-  const wordCloudOptions = {
-    colors: ['#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899'],
-    fontSizes: [14, 80],
-    rotations: 3,
-    rotationAngles: [-30, 30],
-    padding: 5,
-    fontFamily: 'Plus Jakarta Sans',
-    fontWeight: 600
   };
 
   return (
