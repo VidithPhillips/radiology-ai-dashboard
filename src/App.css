@@ -1,26 +1,26 @@
 :root {
-  /* Modern color palette inspired by award-winning designs */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: rgba(20, 20, 20, 0.95);
-  --bg-tertiary: #1a1a1a;
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --accent-primary: #3b82f6;
-  --accent-secondary: #6366f1;
-  --accent-tertiary: #8b5cf6;
-  --success: #10b981;
-  --error: #ef4444;
+  /* Refined color palette for better contrast */
+  --bg-primary: #111827;
+  --bg-secondary: rgba(17, 24, 39, 0.95);
+  --bg-tertiary: #1f2937;
+  --text-primary: #f3f4f6;
+  --text-secondary: #d1d5db;
+  --accent-primary: #60a5fa;
+  --accent-secondary: #818cf8;
+  --accent-tertiary: #a78bfa;
+  --success: #34d399;
+  --error: #f87171;
   
-  /* Sophisticated gradients */
-  --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  /* Adjusted gradients for better visibility */
+  --gradient-primary: linear-gradient(135deg, #60a5fa 0%, #818cf8 100%);
   --gradient-glow: linear-gradient(
-    rgba(59, 130, 246, 0.5),
-    rgba(99, 102, 241, 0.2)
+    rgba(96, 165, 250, 0.3),
+    rgba(129, 140, 248, 0.1)
   );
   
-  /* Glass morphism */
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.05);
+  /* Refined glass effects */
+  --glass-bg: rgba(31, 41, 55, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
   --glass-effect: blur(12px);
 }
 
@@ -79,6 +79,7 @@ body {
   padding: 2rem;
   position: relative;
   overflow: hidden;
+  color: var(--text-primary);
 }
 
 .stat-card::before {
@@ -154,7 +155,7 @@ body {
 
 /* Modern buttons */
 .subdomain-filter {
-  background: var(--glass-bg);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
   border: 1px solid var(--glass-border);
   padding: 0.75rem 1.5rem;
@@ -176,10 +177,10 @@ body {
   border: 1px solid var(--glass-border);
 }
 
-.react-calendar-heatmap .color-scale-1 { fill: rgba(59, 130, 246, 0.2); }
-.react-calendar-heatmap .color-scale-2 { fill: rgba(59, 130, 246, 0.4); }
-.react-calendar-heatmap .color-scale-3 { fill: rgba(59, 130, 246, 0.6); }
-.react-calendar-heatmap .color-scale-4 { fill: rgba(59, 130, 246, 0.8); }
+.react-calendar-heatmap .color-scale-1 { fill: rgba(96, 165, 250, 0.3); }
+.react-calendar-heatmap .color-scale-2 { fill: rgba(96, 165, 250, 0.5); }
+.react-calendar-heatmap .color-scale-3 { fill: rgba(96, 165, 250, 0.7); }
+.react-calendar-heatmap .color-scale-4 { fill: rgba(96, 165, 250, 0.9); }
 
 /* Animated loading state */
 .loading-indicator {
@@ -275,8 +276,8 @@ body {
 }
 
 .subdomain-filter.active {
-  background: var(--gradient-primary);
-  color: white;
+  background: var(--accent-primary);
+  color: var(--bg-primary);
   box-shadow: var(--shadow-md);
 }
 
@@ -284,7 +285,7 @@ body {
 .faq-section {
   margin-top: 3rem;
   padding: 2rem;
-  background: var(--card-bg);
+  background: var(--bg-tertiary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -323,12 +324,12 @@ body {
 
 .faq-question {
   font-weight: 600;
-  color: #2d3748;
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
 .faq-answer {
-  color: #4a5568;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -394,6 +395,8 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 .stat-label {
@@ -424,13 +427,25 @@ body {
 .react-datepicker {
   font-family: 'Plus Jakarta Sans', sans-serif;
   border-radius: 0.5rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-lg);
+  background: var(--bg-tertiary);
 }
 
 .react-datepicker__header {
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  border-color: var(--glass-border);
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name,
+.react-datepicker__day {
+  color: var(--text-primary);
+}
+
+.react-datepicker__day:hover {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
 }
 
 /* Heatmap styles */
@@ -676,4 +691,42 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Fix article card text */
+.article-card h4 {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.article-card p {
+  color: var(--text-secondary);
+}
+
+.article-card a {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  font-weight: 600;
+}
+
+/* Fix search input */
+.search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+/* Fix FAQ section */
+.faq-section {
+  background: var(--bg-tertiary);
+}
+
+.faq-item {
+  background: var(--bg-secondary);
+}
+
+.faq-question {
+  color: var(--text-primary);
+}
+
+.faq-answer {
+  color: var(--text-secondary);
 }
