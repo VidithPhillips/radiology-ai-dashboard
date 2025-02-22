@@ -7,6 +7,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import 'react-calendar-heatmap/dist/styles.css';
+import ReactTooltip from 'react-tooltip';
 
 // Define radiology subdomains and their related keywords
 const radiologySubdomains = {
@@ -64,22 +65,23 @@ function App() {
 
   // Update the search terms to be more specific
   const searchTerms = [
-    '("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND ("Diagnostic Imaging"[Mesh] OR "Radiology, Interventional"[Mesh]) AND "Clinical Study"[Publication Type]',
+    '("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND ("Diagnostic Imaging"[Mesh] OR "Radiology"[Mesh]) AND ("Clinical Trial"[Publication Type] OR "Validation Studies as Topic"[Mesh])',
     
-    '("Machine Learning"[Mesh] OR "Neural Networks, Computer"[Mesh]) AND ("Radiography"[Mesh] OR "Radiologists"[Mesh]) AND ("Clinical Trial"[Publication Type] OR "Observational Study"[Publication Type])',
+    '("Machine Learning"[Mesh] OR "Neural Networks, Computer"[Mesh]) AND ("Radiography"[Mesh] OR "Radiologists"[Mesh]) AND ("Evaluation Study"[Publication Type] OR "Patient Outcome Assessment"[Mesh])',
     
-    '("Artificial Intelligence"[Mesh] AND "Radiology Department, Hospital"[Mesh]) AND ("Validation Study"[Publication Type] OR "Evaluation Study"[Publication Type])'
+    '("Computer-Assisted Image Processing"[Mesh] AND "Artificial Intelligence"[Mesh]) AND ("Radiology Department, Hospital"[Mesh] OR "Diagnostic Imaging"[Mesh]) AND "Humans"[Mesh]'
   ];
 
   // Add clinical domain filtering
   const isClinicalPaper = (article) => {
     const clinicalTerms = [
-      'clinical', 'patient', 'diagnosis', 'diagnostic',
-      'hospital', 'treatment', 'outcome', 'radiologist',
-      'workflow', 'accuracy', 'performance', 'validation'
+      'clinical trial', 'patient outcome', 'diagnostic accuracy',
+      'sensitivity and specificity', 'retrospective study', 'prospective study',
+      'validation', 'performance evaluation', 'clinical implementation',
+      'clinical workflow', 'diagnostic performance', 'clinical practice'
     ];
     
-    const text = (article.title + ' ' + article.abstract).toLowerCase();
+    const text = (article.title + ' ' + article.abstract + ' ' + article.meshTerms.join(' ')).toLowerCase();
     return clinicalTerms.some(term => text.includes(term));
   };
 
@@ -95,7 +97,7 @@ function App() {
     }
 
     // Only process if it's a clinical paper
-    if (!isClinicalPaper({title: item.title, abstract: item.abstract})) {
+    if (!isClinicalPaper({title: item.title, abstract: item.abstract, meshTerms: item.mesh || []})) {
       return null;
     }
 
@@ -305,16 +307,17 @@ function App() {
     plugins: {
       legend: {
         position: 'right',
+        align: 'center',
         labels: {
           padding: 20,
-          color: '#0f172a',  // Dark color for visibility
+          color: '#0f172a',
           font: {
-            size: 14,
-            weight: '600',
+            size: 13,
+            weight: '500',
             family: "'Plus Jakarta Sans', sans-serif"
           },
           usePointStyle: true,
-          boxWidth: 10,
+          pointStyle: 'circle',
           generateLabels: (chart) => {
             const data = chart.data;
             return data.labels.map((label, i) => ({
@@ -329,7 +332,7 @@ function App() {
         }
       },
       tooltip: {
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
         titleColor: '#0f172a',
         bodyColor: '#0f172a',
         bodyFont: {
@@ -337,7 +340,15 @@ function App() {
         },
         padding: 12,
         borderColor: '#e2e8f0',
-        borderWidth: 1
+        borderWidth: 1,
+        callbacks: {
+          label: function(context) {
+            const value = context.raw;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return `${context.label}: ${value} (${percentage}%)`;
+          }
+        }
       }
     }
   };
@@ -426,11 +437,14 @@ function App() {
       return acc;
     }, {});
     
-    // Convert to format needed by heatmap
     const values = Object.entries(articlesByDate).map(([date, count]) => ({
       date,
       count
     }));
+
+    useEffect(() => {
+      ReactTooltip.rebuild();
+    }, [values]);
 
     return (
       <div className="charts-section">
@@ -445,11 +459,14 @@ function App() {
               return `color-scale-${Math.min(4, value.count)}`;
             }}
             tooltipDataAttrs={value => ({
-              'data-tip': value.date 
-                ? `${value.date}: ${value.count} articles`
-                : 'No articles'
+              'data-tip': value?.date 
+                ? `${new Date(value.date).toLocaleDateString()}: ${value.count} articles`
+                : 'No publications'
             })}
+            showWeekdayLabels={true}
+            monthLabels={['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']}
           />
+          <ReactTooltip />
         </div>
       </div>
     );
@@ -502,38 +519,41 @@ function App() {
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M8 4L12 8L4 8L8 4Z" fill="currentColor"/>
                 </svg>
-                <span>+{Math.round((articles.length / 100) * 100)}% this month</span>
+                <span>Last 7 days</span>
               </div>
             </div>
             
             <div className="stat-card">
               <div className="stat-value">
-                {Object.entries(subdomainStats).reduce((max, [key, value]) => 
-                  value > max.value ? {key, value} : max, 
-                  {key: '', value: 0}
-                ).key}
+                {Object.entries(subdomainStats)
+                  .reduce((max, [key, value]) => 
+                    value > max.value ? {key, value} : max, 
+                    {key: '', value: 0}
+                  ).key.split('/')[0]}
               </div>
-              <div className="stat-label">Most Active Subdomain</div>
+              <div className="stat-label">Top Subspecialty</div>
             </div>
             
             <div className="stat-card">
               <div className="stat-value">
-                {articles.reduce((acc, curr) => 
-                  acc + (curr.authors ? curr.authors.length : 0), 0) / articles.length || 0}
+                {(articles.reduce((acc, curr) => 
+                  acc + (curr.authors ? curr.authors.length : 0), 0) / articles.length || 0)
+                  .toFixed(1)}
               </div>
-              <div className="stat-label">Avg. Authors per Paper</div>
+              <div className="stat-label">Avg. Authors</div>
             </div>
             
             <div className="stat-card">
               <div className="stat-value">
                 {Object.entries(
                   articles.reduce((acc, curr) => {
-                    acc[curr.journal] = (acc[curr.journal] || 0) + 1;
+                    const journal = curr.journal.split('.')[0]; // Truncate journal name
+                    acc[journal] = (acc[journal] || 0) + 1;
                     return acc;
                   }, {})
                 ).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'}
               </div>
-              <div className="stat-label">Top Publishing Journal</div>
+              <div className="stat-label">Top Journal</div>
             </div>
           </div>
 
