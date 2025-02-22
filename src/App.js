@@ -7,7 +7,8 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import 'react-calendar-heatmap/dist/styles.css';
-import { Tooltip as ReactTooltip } from 'react-tooltip';
+import { Tooltip } from 'react-tooltip';
+import 'react-tooltip/dist/react-tooltip.css';
 
 // Define radiology subdomains and their related keywords
 const radiologySubdomains = {
@@ -63,13 +64,13 @@ function App() {
   const [dateRange, setDateRange] = useState([null, null]);
   const [startDate, endDate] = dateRange;
 
-  // Update the search terms to be more specific
+  // Update the search terms to be more reliable
   const searchTerms = [
-    '("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND ("Diagnostic Imaging"[Mesh] OR "Radiology"[Mesh]) AND ("Clinical Trial"[Publication Type] OR "Validation Studies as Topic"[Mesh])',
+    '("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND "Diagnostic Imaging"[Mesh] AND "Clinical Trial"[Publication Type]',
     
-    '("Machine Learning"[Mesh] OR "Neural Networks, Computer"[Mesh]) AND ("Radiography"[Mesh] OR "Radiologists"[Mesh]) AND ("Evaluation Study"[Publication Type] OR "Patient Outcome Assessment"[Mesh])',
+    '("Machine Learning"[Mesh]) AND "Radiology"[Mesh] AND ("Clinical Study"[Publication Type] OR "Evaluation Study"[Publication Type])',
     
-    '("Computer-Assisted Image Processing"[Mesh] AND "Artificial Intelligence"[Mesh]) AND ("Radiology Department, Hospital"[Mesh] OR "Diagnostic Imaging"[Mesh]) AND "Humans"[Mesh]'
+    '("Neural Networks, Computer"[Mesh]) AND "Diagnostic Imaging"[Mesh] AND "Humans"[Mesh]'
   ];
 
   // Add clinical domain filtering
@@ -424,13 +425,12 @@ function App() {
     );
   };
 
-  // Add this component
+  // Update the PublicationHeatmap component
   const PublicationHeatmap = ({ articles }) => {
     const today = new Date();
     const startDate = new Date();
     startDate.setFullYear(today.getFullYear() - 1);
     
-    // Group articles by date
     const articlesByDate = articles.reduce((acc, article) => {
       const date = article.publicationDate.split('T')[0];
       acc[date] = (acc[date] || 0) + 1;
@@ -441,10 +441,6 @@ function App() {
       date,
       count
     }));
-
-    useEffect(() => {
-      ReactTooltip.rebuild();
-    }, [values]);
 
     return (
       <div className="charts-section">
@@ -467,7 +463,7 @@ function App() {
             showWeekdayLabels={true}
             monthLabels={['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']}
           />
-          <ReactTooltip id="heatmap-tooltip" />
+          <Tooltip id="heatmap-tooltip" />
         </div>
       </div>
     );
