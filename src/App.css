@@ -1,16 +1,17 @@
 :root {
-  /* Color System */
-  --bg-primary: #0f172a;
-  --bg-secondary: rgba(15, 23, 42, 0.95);
-  --bg-tertiary: #1e293b;
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
+  /* Darker color scheme for better contrast */
+  --bg-primary: #0a0f1c;    /* Darker background */
+  --bg-secondary: #111827;  /* Darker cards */
+  --bg-tertiary: #1f2937;   /* Darker elements */
+  --text-primary: #ffffff;  /* Pure white text */
+  --text-secondary: #cbd5e1;  /* Updated */
+  --text-tertiary: #b4c6ef;   /* New - for better contrast on dark backgrounds */
   --accent-primary: #3b82f6;
   --accent-secondary: #6366f1;
   --accent-tertiary: #8b5cf6;
-  --success: #10b981;
-  --error: #ef4444;
-  --warning: #f59e0b;
+  --success: #34d399;
+  --error: #f87171;
+  --warning: #fbbf24;
   
   /* Spacing Scale */
   --space-xs: 0.5rem;
@@ -42,9 +43,12 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   
   /* Effects */
-  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-bg: rgba(17, 24, 39, 0.95);  /* More opaque */
   --glass-border: rgba(255, 255, 255, 0.1);
   --transition-base: all 0.2s ease;
+  
+  /* Card backgrounds with more opacity */
+  --card-bg: rgba(17, 24, 39, 0.95);  /* More opaque */
 }
 
 /* Import modern fonts */
@@ -102,13 +106,14 @@ body {
 
 /* Modern stat cards */
 .stat-card {
-  background: var(--glass-bg);
+  background: var(--bg-secondary);
   border-radius: 24px;
   border: 1px solid var(--glass-border);
   padding: 2rem;
   position: relative;
   overflow: hidden;
   color: var(--text-primary);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
 }
 
 .stat-card::before {
@@ -196,7 +201,7 @@ body {
 }
 
 .article-card p {
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   margin: 0.75rem 0;
 }
 
@@ -214,7 +219,7 @@ body {
 /* Modern buttons */
 .subdomain-filter {
   background: var(--bg-tertiary);
-  color: var(--text-primary);
+  color: var(--text-tertiary);
   border: 1px solid var(--glass-border);
   padding: 0.75rem 1.5rem;
   border-radius: 12px;
@@ -229,7 +234,7 @@ body {
 
 /* Enhanced heatmap */
 .heatmap-container {
-  background: var(--glass-bg);
+  background: var(--bg-secondary);
   border-radius: 24px;
   padding: 2rem;
   border: 1px solid var(--glass-border);
@@ -319,7 +324,7 @@ body {
 
 .subdomain-filter {
   background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
   border: 1px solid var(--glass-border);
@@ -504,7 +509,7 @@ body {
 .heatmap-container {
   margin: 2rem 0;
   padding: 1rem;
-  background: var(--glass-bg);
+  background: var(--bg-secondary);
   border-radius: 1.5rem;
 }
 
@@ -548,7 +553,7 @@ body {
 }
 
 .wordcloud-container {
-  background: var(--glass-bg);
+  background: var(--bg-secondary);
   backdrop-filter: var(--glass-effect);
   border-radius: 1.5rem;
   padding: 2rem;
@@ -557,7 +562,7 @@ body {
 }
 
 .trend-analysis {
-  background: var(--glass-bg);
+  background: var(--bg-secondary);
   border-radius: 1.5rem;
   padding: 2rem;
   margin-top: 2rem;
@@ -616,7 +621,7 @@ body {
 }
 
 .topic-card {
-  background: var(--glass-bg);
+  background: var(--bg-secondary);
   border-radius: 1rem;
   padding: 1.5rem;
   display: flex;
@@ -701,7 +706,7 @@ body {
 
 /* Improve chart layouts */
 .charts-section {
-  background: var(--glass-bg);
+  background: var(--bg-secondary);
   border-radius: 1.5rem;
   padding: 2rem;
   margin: 2rem 0;
@@ -754,7 +759,7 @@ body {
 }
 
 .article-card p {
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   margin: 0.75rem 0;
 }
 
@@ -789,4 +794,14 @@ body {
 
 .faq-answer {
   color: var(--text-secondary);
+}
+
+/* Add these helper classes */
+.text-high-contrast {
+  color: var(--text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.text-medium-contrast {
+  color: var(--text-tertiary);
 }
