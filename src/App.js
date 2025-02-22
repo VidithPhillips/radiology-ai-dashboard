@@ -81,12 +81,12 @@ function App() {
   const [dateRange, setDateRange] = useState([null, null]);
   const [startDate, endDate] = dateRange;
 
-  // Update the search terms to be more reliable
-  const searchTerms = [
+  // Move searchTerms inside useMemo
+  const searchTerms = useMemo(() => [
     '("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND "Diagnostic Imaging"[Mesh]',
     '("Machine Learning"[Mesh]) AND "Radiology"[Mesh]',
     '("Neural Networks, Computer"[Mesh]) AND "Diagnostic Imaging"[Mesh]'
-  ];
+  ], []);
 
   // Add clinical domain filtering
   const isClinicalPaper = (article) => {
@@ -101,18 +101,16 @@ function App() {
     return clinicalTerms.some(term => text.includes(term));
   };
 
-  const processArticle = (item, now) => {
-    // Extract proper publication date from PubMed data
+  // Wrap processArticle in useCallback
+  const processArticle = useCallback((item, now) => {
     const pubDateStr = item.pubdate || item.sortpubdate;
     let pubDate;
     try {
-      // Handle different date formats from PubMed
       pubDate = pubDateStr ? new Date(pubDateStr) : now;
     } catch (e) {
       pubDate = now;
     }
 
-    // Only process if it's a clinical paper
     if (!isClinicalPaper({title: item.title, abstract: item.abstract, meshTerms: item.mesh || []})) {
       return null;
     }
@@ -128,8 +126,9 @@ function App() {
       meshTerms: item.mesh || [],
       dateIndexed: new Date().toISOString()
     };
-  };
+  }, []);
 
+  // Update fetchArticles dependencies
   const fetchArticles = useCallback(async () => {
     const now = new Date();
     const { firstDay, lastDay } = getWeekDates(now);
