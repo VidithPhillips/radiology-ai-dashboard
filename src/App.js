@@ -221,7 +221,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [processArticle, searchTerms]);
 
   const checkAndRefresh = useCallback(() => {
     const now = new Date();
@@ -365,6 +365,12 @@ function App() {
 
   // Update WeeklyStats component
   const WeeklyStats = ({ articles }) => {
+    const formatWeekLabel = useCallback((weekKey) => {
+      const [year, week] = weekKey.split('-W');
+      const date = getDateOfWeek(parseInt(week), parseInt(year));
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }, []);
+
     const weeklyData = useMemo(() => {
       const weeks = {};
       articles.forEach(article => {
@@ -373,7 +379,6 @@ function App() {
         weeks[weekKey] = (weeks[weekKey] || 0) + 1;
       });
 
-      // Sort weeks and get last 12 weeks
       return Object.entries(weeks)
         .sort(([a], [b]) => a.localeCompare(b))
         .slice(-12)
@@ -381,18 +386,7 @@ function App() {
           week: formatWeekLabel(week),
           count
         }));
-    }, [articles]);
-
-    const formatWeekLabel = (weekKey) => {
-      const [year, week] = weekKey.split('-W');
-      const date = getDateOfWeek(parseInt(week), parseInt(year));
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    };
-
-    const getDateOfWeek = (week, year) => {
-      const date = new Date(year, 0, 1 + (week - 1) * 7);
-      return date;
-    };
+    }, [articles, formatWeekLabel]);
 
     const chartOptions = {
       responsive: true,
