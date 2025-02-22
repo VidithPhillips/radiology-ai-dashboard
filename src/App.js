@@ -9,6 +9,8 @@ import CalendarHeatmap from 'react-calendar-heatmap';
 import 'react-calendar-heatmap/dist/styles.css';
 import { Tooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
+import * as tf from '@tensorflow/tfjs';
+import { WordCloud } from 'react-wordcloud';
 
 // Define radiology subdomains and their related keywords
 const radiologySubdomains = {
@@ -292,10 +294,10 @@ function App() {
         '#3b82f6',  // Blue
         '#6366f1',  // Indigo
         '#8b5cf6',  // Purple
+        '#d946ef',  // Fuchsia
         '#ec4899',  // Pink
         '#f43f5e',  // Rose
-        '#f97316',  // Orange
-        '#eab308'   // Yellow
+        '#10b981'   // Emerald
       ]
     }]
   };
@@ -444,24 +446,150 @@ function App() {
       <div className="charts-section">
         <h2>Publication Activity</h2>
         <div className="heatmap-container">
+          <div className="heatmap-legend">
+            <span>Less</span>
+            {[1, 2, 3, 4].map(level => (
+              <div key={level} className={`color-scale-${level}`} />
+            ))}
+            <span>More</span>
+          </div>
           <CalendarHeatmap
             startDate={startDate}
             endDate={today}
             values={values}
             classForValue={(value) => {
               if (!value) return 'color-empty';
-              return `color-scale-${Math.min(4, value.count)}`;
+              return `color-scale-${Math.min(4, Math.ceil(value.count/2))}`;
             }}
             titleForValue={(value) => {
               if (!value) return 'No publications';
-              return `${new Date(value.date).toLocaleDateString()}: ${value.count} articles`;
+              const date = new Date(value.date);
+              return `${date.toLocaleDateString('en-US', { 
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}: ${value.count} publication${value.count > 1 ? 's' : ''}`;
             }}
             showWeekdayLabels={true}
-            monthLabels={['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']}
+            weekdayLabels={['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']}
+            monthLabels={['January', 'February', 'March', 'April', 'May', 'June', 
+                         'July', 'August', 'September', 'October', 'November', 'December']}
           />
         </div>
       </div>
     );
+  };
+
+  // Add new analytics components
+  const TopicAnalysis = ({ articles }) => {
+    const [topics, setTopics] = useState([]);
+    
+    useEffect(() => {
+      // Simple topic extraction using TF-IDF
+      const extractTopics = async () => {
+        const docs = articles.map(a => a.title + ' ' + a.abstract);
+        const words = docs.join(' ').toLowerCase()
+          .split(/\W+/)
+          .filter(w => w.length > 3 && !stopWords.includes(w));
+        
+        const wordFreq = {};
+        words.forEach(w => {
+          wordFreq[w] = (wordFreq[w] || 0) + 1;
+        });
+
+        const wordcloudData = Object.entries(wordFreq)
+          .map(([text, value]) => ({ text, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 50);
+
+        setTopics(wordcloudData);
+      };
+
+      extractTopics();
+    }, [articles]);
+
+    return (
+      <div className="charts-section">
+        <h2>Research Topics</h2>
+        <div className="wordcloud-container">
+          <WordCloud
+            words={topics}
+            options={wordCloudOptions}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const TrendAnalysis = ({ articles }) => {
+    const [trends, setTrends] = useState([]);
+
+    useEffect(() => {
+      // Analyze publication trends
+      const analyzeArticles = async () => {
+        const monthlyData = articles.reduce((acc, article) => {
+          const date = new Date(article.publicationDate);
+          const key = `${date.getFullYear()}-${date.getMonth() + 1}`;
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {});
+
+        // Use simple linear regression to predict trend
+        const data = Object.entries(monthlyData)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([_, count]) => count);
+
+        const model = tf.sequential({
+          layers: [tf.layers.dense({ units: 1, inputShape: [1] })]
+        });
+        
+        model.compile({ optimizer: 'sgd', loss: 'meanSquaredError' });
+        
+        const xs = tf.tensor2d([...Array(data.length).keys()], [data.length, 1]);
+        const ys = tf.tensor2d(data, [data.length, 1]);
+        
+        await model.fit(xs, ys, { epochs: 100 });
+        
+        const prediction = model.predict(tf.tensor2d([data.length], [1, 1]));
+        const trendValue = prediction.dataSync()[0];
+
+        setTrends({
+          current: data[data.length - 1],
+          predicted: Math.round(trendValue),
+          growth: ((trendValue - data[data.length - 1]) / data[data.length - 1] * 100).toFixed(1)
+        });
+      };
+
+      analyzeArticles();
+    }, [articles]);
+
+    return (
+      <div className="trend-analysis">
+        <h3>Publication Trend Analysis</h3>
+        <div className="trend-metrics">
+          <div className="trend-metric">
+            <span className="metric-label">Current Rate</span>
+            <span className="metric-value">{trends.current} / month</span>
+          </div>
+          <div className="trend-metric">
+            <span className="metric-label">Projected Growth</span>
+            <span className="metric-value">{trends.growth}%</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Update wordcloud colors
+  const wordCloudOptions = {
+    colors: ['#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899'],
+    fontSizes: [14, 80],
+    rotations: 3,
+    rotationAngles: [-30, 30],
+    padding: 5,
+    fontFamily: 'Plus Jakarta Sans',
+    fontWeight: 600
   };
 
   return (
@@ -608,6 +736,10 @@ function App() {
           <WeeklyStats articles={articles} />
 
           <PublicationHeatmap articles={articles} />
+
+          <TopicAnalysis articles={articles} />
+
+          <TrendAnalysis articles={articles} />
 
           <button className="faq-toggle" onClick={() => setShowFAQ(!showFAQ)}>
             {showFAQ ? 'Hide FAQ' : 'Show FAQ'}
