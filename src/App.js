@@ -7,7 +7,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import 'react-calendar-heatmap/dist/styles.css';
-import ReactTooltip from 'react-tooltip';
+import { Tooltip as ReactTooltip } from 'react-tooltip';
 
 // Define radiology subdomains and their related keywords
 const radiologySubdomains = {
@@ -459,14 +459,15 @@ function App() {
               return `color-scale-${Math.min(4, value.count)}`;
             }}
             tooltipDataAttrs={value => ({
-              'data-tip': value?.date 
+              'data-tooltip-id': 'heatmap-tooltip',
+              'data-tooltip-content': value?.date 
                 ? `${new Date(value.date).toLocaleDateString()}: ${value.count} articles`
                 : 'No publications'
             })}
             showWeekdayLabels={true}
             monthLabels={['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']}
           />
-          <ReactTooltip />
+          <ReactTooltip id="heatmap-tooltip" />
         </div>
       </div>
     );
