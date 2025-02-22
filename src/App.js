@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Pie, Line } from 'react-chartjs-2';
 import 'chart.js/auto'; // Automatically registers required Chart.js components
@@ -49,6 +49,16 @@ const getWeekDates = (date = new Date()) => {
   const firstDay = new Date(curr.setDate(first));
   const lastDay = new Date(curr.setDate(first + 6));
   return { firstDay, lastDay };
+};
+
+// Add this helper function at the top with other helpers
+const getWeekNumber = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const weekNumber = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getFullYear()}-W${weekNumber.toString().padStart(2, '0')}`;
 };
 
 function App() {
@@ -353,22 +363,54 @@ function App() {
     }
   };
 
-  // Add a weekly stats component
+  // Update WeeklyStats component
   const WeeklyStats = ({ articles }) => {
-    const weeklyData = articles.reduce((acc, article) => {
-      const pubDate = new Date(article.publicationDate);
-      const { firstDay } = getWeekDates(pubDate);
-      const weekKey = firstDay.toISOString().split('T')[0];
-      acc[weekKey] = acc[weekKey] || {
-        count: 0,
-        subdomains: {},
-        journals: {}
-      };
-      acc[weekKey].count++;
-      acc[weekKey].subdomains[article.subdomain] = (acc[weekKey].subdomains[article.subdomain] || 0) + 1;
-      acc[weekKey].journals[article.journal] = (acc[weekKey].journals[article.journal] || 0) + 1;
-      return acc;
-    }, {});
+    const weeklyData = useMemo(() => {
+      const weeks = {};
+      articles.forEach(article => {
+        const date = new Date(article.publicationDate);
+        const weekKey = getWeekNumber(date);
+        weeks[weekKey] = (weeks[weekKey] || 0) + 1;
+      });
+
+      // Sort weeks and get last 12 weeks
+      return Object.entries(weeks)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-12)
+        .map(([week, count]) => ({
+          week: formatWeekLabel(week),
+          count
+        }));
+    }, [articles]);
+
+    const formatWeekLabel = (weekKey) => {
+      const [year, week] = weekKey.split('-W');
+      const date = getDateOfWeek(parseInt(week), parseInt(year));
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
+    const getDateOfWeek = (week, year) => {
+      const date = new Date(year, 0, 1 + (week - 1) * 7);
+      return date;
+    };
+
+    const chartOptions = {
+      scales: {
+        x: {
+          grid: { color: 'rgba(255, 255, 255, 0.1)' },
+          ticks: { color: '#ffffff' }
+        },
+        y: {
+          grid: { color: 'rgba(255, 255, 255, 0.1)' },
+          ticks: { color: '#ffffff' }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: { color: '#ffffff' }
+        }
+      }
+    };
 
     return (
       <div className="charts-section">
@@ -376,48 +418,17 @@ function App() {
         <div className="chart-container">
           <Line
             data={{
-              labels: Object.keys(weeklyData).map(date => 
-                new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+              labels: weeklyData.map(data => data.week),
               datasets: [{
                 label: 'Articles per Week',
-                data: Object.values(weeklyData).map(week => week.count),
+                data: weeklyData.map(data => data.count),
                 borderColor: '#3b82f6',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 fill: true,
                 tension: 0.4
               }]
             }}
-            options={{
-              responsive: true,
-              plugins: {
-                legend: {
-                  display: false
-                },
-                tooltip: {
-                  callbacks: {
-                    label: (context) => {
-                      const weekKey = Object.keys(weeklyData)[context.dataIndex];
-                      const week = weeklyData[weekKey];
-                      return [
-                        `Articles: ${week.count}`,
-                        `Top Subdomain: ${Object.entries(week.subdomains)
-                          .sort((a, b) => b[1] - a[1])[0][0]}`,
-                        `Top Journal: ${Object.entries(week.journals)
-                          .sort((a, b) => b[1] - a[1])[0][0]}`
-                      ];
-                    }
-                  }
-                }
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  ticks: {
-                    stepSize: 1
-                  }
-                }
-              }
-            }}
+            options={chartOptions}
           />
         </div>
       </div>
