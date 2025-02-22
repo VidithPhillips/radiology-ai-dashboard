@@ -1,26 +1,106 @@
 :root {
-  /* Modern color palette with better contrast */
-  --bg-primary: #0f172a;    /* Darker background */
-  --bg-secondary: #1e293b;  /* Slightly lighter background */
-  --text-primary: #e2e8f0;  /* Light text for better readability */
-  --text-secondary: #94a3b8; /* Subdued text */
-  --accent-primary: #3b82f6;  /* Bright blue */
-  --accent-secondary: #6366f1; /* Indigo */
-  --error: #ef4444;          /* Red */
-  --success: #22c55e;        /* Green */
-  --card-bg: #1e293b;        /* Card background */
-  --hover-bg: #334155;       /* Hover state */
-  --border-color: #475569;   /* Border color */
-  
-  /* New gradient colors */
-  --gradient-start: #1e293b;
-  --gradient-end: #0f172a;
-  --glass-bg: rgba(30, 41, 59, 0.7);
+  /* Sophisticated light theme */
+  --bg-primary: #f8fafc;    /* Light gray background */
+  --bg-secondary: #ffffff;  /* Pure white */
+  --bg-tertiary: #f1f5f9;  /* Slightly darker for depth */
+  --text-primary: #0f172a;  /* Dark navy for main text */
+  --text-secondary: #475569; /* Slate for secondary text */
+  --accent-primary: #2563eb;  /* Royal blue */
+  --accent-secondary: #4f46e5; /* Indigo */
+  --accent-gradient: linear-gradient(135deg, #2563eb, #4f46e5);
+  --success: #059669;
+  --error: #dc2626;
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --border-color: #e2e8f0;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --glass-effect: saturate(180%) blur(10px);
 }
+
+/* Import modern fonts */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  line-height: 1.6;
+  background: 
+    linear-gradient(120deg, rgba(37, 99, 235, 0.05) 0%, transparent 100%),
+    radial-gradient(circle at 100% 0%, rgba(79, 70, 229, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(37, 99, 235, 0.1) 0%, transparent 40%),
+    linear-gradient(to right, rgba(249, 250, 251, 0.8) 0%, rgba(248, 250, 252, 0.8) 100%);
+  background-attachment: fixed;
+  position: relative;
+}
+
+/* Add this new section for the animated background elements */
+.dashboard::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  background: 
+    radial-gradient(circle at 15% 50%, rgba(37, 99, 235, 0.03) 0%, transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(79, 70, 229, 0.03) 0%, transparent 25%);
+  animation: backgroundShift 15s ease-in-out infinite alternate;
+}
+
+/* Add subtle grid pattern */
+.dashboard::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  background-image: 
+    linear-gradient(rgba(79, 70, 229, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 70, 229, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+  opacity: 0.3;
+}
+
+/* Add this animation for the background shift */
+@keyframes backgroundShift {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 100% 100%;
+  }
+}
+
+/* Update the glass effect for cards */
+.charts-section, .articles-section, .subdomain-filters {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+/* Add subtle hover effect to cards */
+.article-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.article-card:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-4px);
+  box-shadow: 
+    0 12px 20px -10px rgba(37, 99, 235, 0.2),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 .App {
@@ -66,8 +146,6 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  transition: all 0.3s ease;
 }
 
 .dashboard-header {
@@ -75,9 +153,13 @@ body {
 }
 
 .dashboard-header h1 {
-  color: var(--text-secondary);
-  font-size: 2.5rem;
-  margin-bottom: 1.5rem;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 2.8rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 2rem;
 }
 
 .search-container {
@@ -85,29 +167,37 @@ body {
 }
 
 .search-input {
-  width: 100%;
-  max-width: 500px;
-  padding: 12px 20px;
-  font-size: 16px;
-  border: 2px solid var(--accent-primary);
-  border-radius: 8px;
-  transition: border-color 0.2s ease;
   background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   color: var(--text-primary);
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  font-size: 1rem;
+  width: 100%;
+  max-width: 400px;
+  backdrop-filter: var(--glass-effect);
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .search-input:focus {
+  box-shadow: var(--shadow-md), 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--accent-primary);
   outline: none;
-  border-color: #4299e1;
+}
+
+.search-input::placeholder {
+  color: var(--text-secondary);
 }
 
 .charts-section {
   background: var(--card-bg);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: var(--glass-effect);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   margin-bottom: 2rem;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .charts-section:hover {
@@ -116,70 +206,87 @@ body {
 }
 
 .charts-section h2 {
-  color: #2d3748;
-  margin-bottom: 1.5rem;
+  color: var(--text-primary);
   font-size: 1.8rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
 }
 
 .chart-container {
-  height: 400px;
-  margin-bottom: 2rem;
-  display: flex;
-  justify-content: center;
+  position: relative;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .articles-section {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 2rem;
 }
 
 .articles-section h2 {
-  color: #2d3748;
-  margin-bottom: 1.5rem;
+  color: var(--text-primary);
   font-size: 1.8rem;
+  font-weight: 600;
 }
 
 .article-card {
-  background: var(--card-bg);
-  border-left: 4px solid var(--accent-primary);
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border-radius: 1rem;
   padding: 1.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.article-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--accent-gradient);
+  border-radius: 4px 0 0 4px;
 }
 
 .article-card:hover {
-  background: var(--hover-bg);
-  transform: translateX(5px);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
 }
 
 .article-card h4 {
-  color: #2c5282;
+  color: var(--text-primary);
   font-size: 1.2rem;
+  font-weight: 600;
   margin-bottom: 1rem;
 }
 
 .article-card p {
-  color: #4a5568;
-  margin-bottom: 0.5rem;
-  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0.8rem 0;
+  font-size: 0.95rem;
 }
 
 .article-card a {
   display: inline-block;
-  margin-top: 1rem;
-  padding: 8px 16px;
-  background-color: #4299e1;
+  background: var(--accent-primary);
   color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
   text-decoration: none;
-  border-radius: 6px;
-  transition: background-color 0.2s ease;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .article-card a:hover {
-  background-color: #2b6cb0;
+  background: var(--accent-secondary);
+  transform: translateY(-2px);
 }
 
 .loading-indicator {
@@ -208,12 +315,14 @@ body {
 
 .article-subdomain {
   display: inline-block;
-  padding: 4px 8px;
-  background-color: var(--bg-secondary);
-  color: var(--accent-secondary);
-  border-radius: 4px;
+  padding: 0.4rem 1rem;
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
+  border-radius: 2rem;
+  font-weight: 600;
   font-size: 0.875rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(37, 99, 235, 0.1);
 }
 
 .pagination {
@@ -225,13 +334,12 @@ body {
 }
 
 .pagination button {
-  padding: 8px 16px;
-  background-color: var(--accent-primary);
-  color: var(--bg-primary);
+  background: var(--accent-primary);
+  color: white;
   border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 500;
 }
 
 .pagination button:disabled {
@@ -246,41 +354,45 @@ body {
 }
 
 .pagination span {
-  color: #4A5568;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 /* Subdomain filters */
 .subdomain-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 2rem;
-  padding: 1rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-md);
+  margin: 2rem 0;
 }
 
 .subdomain-filter {
-  padding: 8px 16px;
-  border: 2px solid var(--accent-primary);
-  border-radius: 20px;
+  padding: 0.6rem 1.2rem;
+  border-radius: 2rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-}
-
-.subdomain-filter.active {
-  background-color: var(--accent-primary);
-  color: var(--bg-primary);
-  border-color: var(--accent-primary);
 }
 
 .subdomain-filter:hover {
+  background: var(--bg-secondary);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
   transform: translateY(-2px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.subdomain-filter.active {
+  background: var(--accent-gradient);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
 /* FAQ Section */
@@ -337,7 +449,28 @@ body {
 
 /* Animated loading spinner */
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.2); }
+  70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+/* Add these new sophisticated elements */
+.glass-card {
+  backdrop-filter: var(--glass-effect);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.gradient-border {
+  position: relative;
+  border: double 1px transparent;
+  border-radius: 1rem;
+  background-image: linear-gradient(white, white), var(--accent-gradient);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+/* Enhanced animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
