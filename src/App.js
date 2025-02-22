@@ -22,6 +22,12 @@ const radiologySubdomains = {
   'General/Other': [] // Catch-all category
 };
 
+// Add this with the other helper functions at the top
+const getDateOfWeek = (week, year) => {
+  const date = new Date(year, 0, 1 + (week - 1) * 7);
+  return date;
+};
+
 // Helper: Format a Date as "YYYY/MM/DD"
 function formatDate(date) {
   const yyyy = date.getFullYear();
