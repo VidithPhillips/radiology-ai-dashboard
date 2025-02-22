@@ -316,54 +316,31 @@ function App() {
     }]
   };
 
+  // Update Pie chart options
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'right',
-        align: 'center',
         labels: {
-          padding: 20,
-          color: '#0f172a',
+          color: '#ffffff', // Make text white
           font: {
             size: 13,
-            weight: '500',
             family: "'Plus Jakarta Sans', sans-serif"
-          },
-          usePointStyle: true,
-          pointStyle: 'circle',
-          generateLabels: (chart) => {
-            const data = chart.data;
-            return data.labels.map((label, i) => ({
-              text: `${label} (${data.datasets[0].data[i]})`,
-              fillStyle: data.datasets[0].backgroundColor[i],
-              strokeStyle: data.datasets[0].backgroundColor[i],
-              lineWidth: 0,
-              hidden: false,
-              index: i
-            }));
           }
         }
       },
       tooltip: {
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        titleColor: '#0f172a',
-        bodyColor: '#0f172a',
+        backgroundColor: 'rgba(17, 24, 39, 0.95)', // Dark background
+        titleColor: '#ffffff',
+        bodyColor: '#ffffff',
         bodyFont: {
           family: "'Plus Jakarta Sans', sans-serif"
         },
         padding: 12,
-        borderColor: '#e2e8f0',
-        borderWidth: 1,
-        callbacks: {
-          label: function(context) {
-            const value = context.raw;
-            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-            const percentage = ((value / total) * 100).toFixed(1);
-            return `${context.label}: ${value} (${percentage}%)`;
-          }
-        }
+        borderColor: '#1f2937',
+        borderWidth: 1
       }
     }
   };
@@ -393,7 +370,8 @@ function App() {
         }));
     }, [articles, formatWeekLabel]);
 
-    const chartOptions = {
+    // Update Line chart options
+    const lineChartOptions = {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
@@ -428,7 +406,7 @@ function App() {
                 tension: 0.4
               }]
             }}
-            options={chartOptions}
+            options={lineChartOptions}
           />
         </div>
       </div>
