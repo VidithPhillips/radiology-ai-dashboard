@@ -5,6 +5,8 @@ import 'chart.js/auto'; // Automatically registers required Chart.js components
 import './App.css';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import CalendarHeatmap from 'react-calendar-heatmap';
+import 'react-calendar-heatmap/dist/styles.css';
 
 // Define radiology subdomains and their related keywords
 const radiologySubdomains = {
@@ -60,12 +62,26 @@ function App() {
   const [dateRange, setDateRange] = useState([null, null]);
   const [startDate, endDate] = dateRange;
 
-  // Update the search terms section with proper MeSH terms
+  // Update the search terms to be more specific
   const searchTerms = [
-    '("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh] OR "Machine Learning"[Mesh]) AND ("Radiology"[Mesh] OR "Diagnostic Imaging"[Mesh])',
-    '("Neural Networks, Computer"[Mesh]) AND ("Radiology"[Mesh] OR "Diagnostic Imaging"[Mesh])',
-    '("Artificial Intelligence"[Mesh]) AND ("Radiologists"[Mesh] OR "Radiology Department, Hospital"[Mesh])'
+    '("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND ("Diagnostic Imaging"[Mesh] OR "Radiology, Interventional"[Mesh]) AND "Clinical Study"[Publication Type]',
+    
+    '("Machine Learning"[Mesh] OR "Neural Networks, Computer"[Mesh]) AND ("Radiography"[Mesh] OR "Radiologists"[Mesh]) AND ("Clinical Trial"[Publication Type] OR "Observational Study"[Publication Type])',
+    
+    '("Artificial Intelligence"[Mesh] AND "Radiology Department, Hospital"[Mesh]) AND ("Validation Study"[Publication Type] OR "Evaluation Study"[Publication Type])'
   ];
+
+  // Add clinical domain filtering
+  const isClinicalPaper = (article) => {
+    const clinicalTerms = [
+      'clinical', 'patient', 'diagnosis', 'diagnostic',
+      'hospital', 'treatment', 'outcome', 'radiologist',
+      'workflow', 'accuracy', 'performance', 'validation'
+    ];
+    
+    const text = (article.title + ' ' + article.abstract).toLowerCase();
+    return clinicalTerms.some(term => text.includes(term));
+  };
 
   const processArticle = (item, now) => {
     // Extract proper publication date from PubMed data
@@ -76,6 +92,11 @@ function App() {
       pubDate = pubDateStr ? new Date(pubDateStr) : now;
     } catch (e) {
       pubDate = now;
+    }
+
+    // Only process if it's a clinical paper
+    if (!isClinicalPaper({title: item.title, abstract: item.abstract})) {
+      return null;
     }
 
     return {
@@ -392,6 +413,48 @@ function App() {
     );
   };
 
+  // Add this component
+  const PublicationHeatmap = ({ articles }) => {
+    const today = new Date();
+    const startDate = new Date();
+    startDate.setFullYear(today.getFullYear() - 1);
+    
+    // Group articles by date
+    const articlesByDate = articles.reduce((acc, article) => {
+      const date = article.publicationDate.split('T')[0];
+      acc[date] = (acc[date] || 0) + 1;
+      return acc;
+    }, {});
+    
+    // Convert to format needed by heatmap
+    const values = Object.entries(articlesByDate).map(([date, count]) => ({
+      date,
+      count
+    }));
+
+    return (
+      <div className="charts-section">
+        <h2>Publication Activity</h2>
+        <div className="heatmap-container">
+          <CalendarHeatmap
+            startDate={startDate}
+            endDate={today}
+            values={values}
+            classForValue={(value) => {
+              if (!value) return 'color-empty';
+              return `color-scale-${Math.min(4, value.count)}`;
+            }}
+            tooltipDataAttrs={value => ({
+              'data-tip': value.date 
+                ? `${value.date}: ${value.count} articles`
+                : 'No articles'
+            })}
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="dashboard">
       <div className="dashboard-header">
@@ -531,6 +594,8 @@ function App() {
           </div>
 
           <WeeklyStats articles={articles} />
+
+          <PublicationHeatmap articles={articles} />
 
           <button className="faq-toggle" onClick={() => setShowFAQ(!showFAQ)}>
             {showFAQ ? 'Hide FAQ' : 'Show FAQ'}

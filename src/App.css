@@ -265,12 +265,18 @@ body {
   font-size: 1.2rem;
   font-weight: 600;
   margin-bottom: 1rem;
+  margin: 0.5rem 0;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .article-card p {
   color: var(--text-secondary);
-  margin: 0.8rem 0;
-  font-size: 0.95rem;
+  margin: 0.5rem 0;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .article-card a {
@@ -508,12 +514,16 @@ body {
   font-weight: 700;
   color: var(--accent-primary);
   margin-bottom: 0.5rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .stat-label {
   color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 500;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .trend-indicator {
@@ -543,4 +553,37 @@ body {
 .react-datepicker__header {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
+}
+
+/* Heatmap styles */
+.heatmap-container {
+  margin: 2rem 0;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 1rem;
+}
+
+.react-calendar-heatmap {
+  width: 100%;
+  height: auto;
+}
+
+.react-calendar-heatmap .color-empty {
+  fill: var(--bg-tertiary);
+}
+
+.react-calendar-heatmap .color-scale-1 {
+  fill: #9BE9A8;
+}
+
+.react-calendar-heatmap .color-scale-2 {
+  fill: #40C463;
+}
+
+.react-calendar-heatmap .color-scale-3 {
+  fill: #30A14E;
+}
+
+.react-calendar-heatmap .color-scale-4 {
+  fill: #216E39;
 }
