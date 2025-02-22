@@ -3,6 +3,8 @@ import axios from 'axios';
 import { Pie } from 'react-chartjs-2';
 import 'chart.js/auto'; // Automatically registers required Chart.js components
 import './App.css';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 // Define radiology subdomains and their related keywords
 const radiologySubdomains = {
@@ -46,6 +48,8 @@ function App() {
   const [selectedSubdomain, setSelectedSubdomain] = useState(null);
   const [showFAQ, setShowFAQ] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(localStorage.getItem('lastRefresh') || null);
+  const [dateRange, setDateRange] = useState([null, null]);
+  const [startDate, endDate] = dateRange;
 
   // Update the search terms section with proper MeSH terms
   const searchTerms = [
@@ -54,21 +58,51 @@ function App() {
     '("Artificial Intelligence"[Mesh]) AND ("Radiologists"[Mesh] OR "Radiology Department, Hospital"[Mesh])'
   ];
 
+  const processArticle = (item, now) => {
+    // Extract proper publication date from PubMed data
+    const pubDateStr = item.pubdate || item.sortpubdate;
+    let pubDate;
+    try {
+      // Handle different date formats from PubMed
+      pubDate = pubDateStr ? new Date(pubDateStr) : now;
+    } catch (e) {
+      pubDate = now;
+    }
+
+    return {
+      title: item.title || "No Title",
+      abstract: item.abstract || "",
+      authors: item.authors?.map(a => a.name) || [],
+      journal: item.fulljournalname || "",
+      publicationDate: pubDate.toISOString(),
+      year: pubDate.getFullYear(),
+      link: `https://pubmed.ncbi.nlm.nih.gov/${item.uid}`,
+      meshTerms: item.mesh || [],
+      dateIndexed: new Date().toISOString()
+    };
+  };
+
   const fetchArticles = useCallback(async () => {
     const now = new Date();
-    const mindate = formatDate(new Date(now.getFullYear(), now.getMonth(), 1));
-    const maxdate = formatDate(now);
-    let combined = [];
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const mindate = formatDate(yesterday);
+    const maxdate = formatDate(today);
+    
+    // Get existing articles from localStorage
+    const storedArticles = JSON.parse(localStorage.getItem('articles') || '[]');
+    let combined = [...storedArticles];
 
     try {
       for (const term of searchTerms) {
         try {
           // First API call to get IDs
-          const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&retmax=50&sort=date&datetype=pdat&mindate=${mindate}&maxdate=${maxdate}&retmode=json&usehistory=y`;
+          const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&retmax=100&sort=date&datetype=pdat&mindate=${mindate}&maxdate=${maxdate}&retmode=json&usehistory=y`;
           const searchProxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(searchUrl);
           const searchRes = await axios.get(searchProxyUrl);
           
-          // Add error checking for the response
           if (!searchRes.data || !searchRes.data.esearchresult) {
             console.warn(`Invalid response for search term: ${term}`);
             continue;
@@ -76,48 +110,48 @@ function App() {
 
           const idList = searchRes.data.esearchresult.idlist || [];
           if (idList.length > 0) {
-            // Second API call to get article details
             const detailsUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${idList.join(",")}&retmode=json`;
             const detailsProxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(detailsUrl);
             const detailsRes = await axios.get(detailsProxyUrl);
 
-            // Add error checking for the details response
             if (!detailsRes.data || !detailsRes.data.result) {
               console.warn('Invalid details response');
               continue;
             }
 
-            // Process the articles
+            // Process and add new articles
             Object.values(detailsRes.data.result)
               .filter(item => item?.uid)
               .forEach(item => {
-                combined.push({
-                  title: item.title || "No Title",
-                  abstract: item.abstract || "",
-                  authors: item.authors?.map(a => a.name) || [],
-                  journal: item.fulljournalname || "",
-                  year: parseInt(item.pubdate) || now.getFullYear(),
-                  link: `https://pubmed.ncbi.nlm.nih.gov/${item.uid}`,
-                  meshTerms: item.mesh || [], // Include MeSH terms if available
-                });
+                const newArticle = processArticle(item, now);
+                
+                // Only add if not already in combined
+                if (!combined.some(existing => existing.title === newArticle.title)) {
+                  combined.push(newArticle);
+                }
               });
           }
         } catch (termError) {
           console.warn(`Error processing term "${term}":`, termError);
-          // Continue with next term instead of failing completely
           continue;
         }
       }
+
+      // Sort by date (newest first)
+      combined.sort((a, b) => new Date(b.dateIndexed) - new Date(a.dateIndexed));
+
+      // Store in localStorage
+      localStorage.setItem('articles', JSON.stringify(combined));
 
       if (combined.length === 0) {
         setError("No articles found for the specified criteria.");
         return;
       }
 
-      // Remove duplicates based on title
-      combined = Array.from(new Map(combined.map(item => [item.title, item])).values());
-      
-      // Categorize articles and update subdomain stats
+      // Update state with all articles
+      setArticles(combined);
+
+      // Update subdomain stats
       const stats = Object.keys(radiologySubdomains).reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
       combined.forEach(article => {
         const subdomain = categorizeArticle(article);
@@ -125,9 +159,18 @@ function App() {
         article.subdomain = subdomain;
       });
 
-      setArticles(combined);
       setSubdomainStats(stats);
       setError(null);
+
+      // Store with date information
+      const articlesByDate = {};
+      combined.forEach(article => {
+        const dateKey = article.publicationDate.split('T')[0];
+        articlesByDate[dateKey] = articlesByDate[dateKey] || [];
+        articlesByDate[dateKey].push(article);
+      });
+
+      localStorage.setItem('articlesByDate', JSON.stringify(articlesByDate));
     } catch (e) {
       console.error("Error fetching articles:", e);
       setError("Failed to fetch articles. Please try again later.");
@@ -175,8 +218,27 @@ function App() {
     }
   ];
 
+  // Add date range filtering
+  const getFilteredArticles = useCallback(() => {
+    if (!startDate && !endDate) return articles;
+
+    return articles.filter(article => {
+      const pubDate = new Date(article.publicationDate);
+      if (startDate && endDate) {
+        return pubDate >= startDate && pubDate <= endDate;
+      }
+      if (startDate) {
+        return pubDate >= startDate;
+      }
+      if (endDate) {
+        return pubDate <= endDate;
+      }
+      return true;
+    });
+  }, [articles, startDate, endDate]);
+
   // Update the filtering logic to include subdomain filtering
-  const filteredArticles = articles.filter(article => {
+  const filteredArticles = getFilteredArticles().filter(article => {
     const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSubdomain = !selectedSubdomain || article.subdomain === selectedSubdomain;
     return matchesSearch && matchesSubdomain;
@@ -227,14 +289,27 @@ function App() {
     <div className="dashboard">
       <div className="dashboard-header">
         <h1>Radiology AI Research Dashboard</h1>
-        <div className="search-container">
-          <input
-            className="search-input"
-            type="text"
-            value={searchTerm}
-            placeholder="Search articles..."
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="filters-container">
+          <div className="date-range-picker">
+            <DatePicker
+              selectsRange={true}
+              startDate={startDate}
+              endDate={endDate}
+              onChange={(update) => setDateRange(update)}
+              isClearable={true}
+              placeholderText="Select date range"
+              className="date-picker"
+            />
+          </div>
+          <div className="search-container">
+            <input
+              className="search-input"
+              type="text"
+              value={searchTerm}
+              placeholder="Search articles..."
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -263,8 +338,9 @@ function App() {
 
           <div className="articles-section">
             <h2>
-              Articles ({filteredArticles.length})
+              Articles ({getFilteredArticles().length})
               {selectedSubdomain && ` in ${selectedSubdomain}`}
+              {(startDate || endDate) && ' for selected date range'}
             </h2>
             {loading ? (
               <div className="loading-indicator">
