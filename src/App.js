@@ -66,11 +66,9 @@ function App() {
 
   // Update the search terms to be more reliable
   const searchTerms = [
-    '("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND "Diagnostic Imaging"[Mesh] AND "Clinical Trial"[Publication Type]',
-    
-    '("Machine Learning"[Mesh]) AND "Radiology"[Mesh] AND ("Clinical Study"[Publication Type] OR "Evaluation Study"[Publication Type])',
-    
-    '("Neural Networks, Computer"[Mesh]) AND "Diagnostic Imaging"[Mesh] AND "Humans"[Mesh]'
+    '("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND "Diagnostic Imaging"[Mesh]',
+    '("Machine Learning"[Mesh]) AND "Radiology"[Mesh]',
+    '("Neural Networks, Computer"[Mesh]) AND "Diagnostic Imaging"[Mesh]'
   ];
 
   // Add clinical domain filtering
@@ -454,16 +452,13 @@ function App() {
               if (!value) return 'color-empty';
               return `color-scale-${Math.min(4, value.count)}`;
             }}
-            tooltipDataAttrs={value => ({
-              'data-tooltip-id': 'heatmap-tooltip',
-              'data-tooltip-content': value?.date 
-                ? `${new Date(value.date).toLocaleDateString()}: ${value.count} articles`
-                : 'No publications'
-            })}
+            titleForValue={(value) => {
+              if (!value) return 'No publications';
+              return `${new Date(value.date).toLocaleDateString()}: ${value.count} articles`;
+            }}
             showWeekdayLabels={true}
             monthLabels={['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']}
           />
-          <Tooltip id="heatmap-tooltip" />
         </div>
       </div>
     );
