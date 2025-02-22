@@ -1,4 +1,10 @@
 /*!
+  react-datepicker v8.1.0
+  https://github.com/Hacker0x01/react-datepicker
+  Released under the MIT License.
+*/
+
+/*!
  * @kurkle/color v0.3.4
  * https://github.com/kurkle/color#readme
  * (c) 2024 Jukka Kurkela
