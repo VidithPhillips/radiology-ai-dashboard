@@ -480,28 +480,41 @@ function App() {
     );
   };
 
-  // Instead, let's modify the analytics to show a simple topic distribution
+  // Add a stop words list for better topic analysis
+  const stopWords = new Set([
+    'the', 'and', 'with', 'using', 'for', 'study', 'analysis', 'based',
+    'results', 'method', 'methods', 'data', 'used', 'use', 'from', 'were',
+    'was', 'that', 'this', 'research', 'artificial', 'intelligence', 'learning',
+    'deep', 'machine', 'model', 'models', 'performance'
+  ]);
+
+  // Update TopicAnalysis component
   const TopicAnalysis = ({ articles }) => {
     const [topics, setTopics] = useState([]);
     
     useEffect(() => {
       const extractTopics = () => {
-        const docs = articles.map(a => a.title + ' ' + a.abstract);
-        const words = docs.join(' ').toLowerCase()
-          .split(/\W+/)
-          .filter(w => w.length > 3);
+        // Extract meaningful phrases instead of just words
+        const phrases = articles.flatMap(article => {
+          const text = article.title + ' ' + article.abstract;
+          return text.toLowerCase()
+            .match(/(?:\w+\s){2,3}\w+/g) || []; // Extract 3-4 word phrases
+        });
         
-        const wordFreq = {};
-        words.forEach(w => {
-          wordFreq[w] = (wordFreq[w] || 0) + 1;
+        const phraseFreq = {};
+        phrases.forEach(phrase => {
+          // Filter out phrases with stop words
+          if (!phrase.split(' ').every(word => stopWords.has(word))) {
+            phraseFreq[phrase] = (phraseFreq[phrase] || 0) + 1;
+          }
         });
 
-        const topWords = Object.entries(wordFreq)
+        const topPhrases = Object.entries(phraseFreq)
           .sort((a, b) => b[1] - a[1])
-          .slice(0, 10)
+          .slice(0, 8)
           .map(([text, value]) => ({ text, value }));
 
-        setTopics(topWords);
+        setTopics(topPhrases);
       };
 
       extractTopics();
@@ -509,12 +522,15 @@ function App() {
 
     return (
       <div className="charts-section">
-        <h2>Top Research Topics</h2>
+        <h2>Key Research Topics</h2>
         <div className="topics-grid">
           {topics.map((topic, index) => (
             <div key={index} className="topic-card">
               <div className="topic-text">{topic.text}</div>
-              <div className="topic-value">{topic.value} mentions</div>
+              <div className="topic-count">{topic.value} occurrences</div>
+              <div className="topic-trend">
+                {topic.value > 5 ? '↗️ Trending' : '➡️ Stable'}
+              </div>
             </div>
           ))}
         </div>
@@ -522,59 +538,78 @@ function App() {
     );
   };
 
+  // Improve TrendAnalysis
   const TrendAnalysis = ({ articles }) => {
-    const [trends, setTrends] = useState([]);
+    const [trends, setTrends] = useState(null);
 
     useEffect(() => {
-      // Analyze publication trends
       const analyzeArticles = async () => {
+        // Group by month and subdomain
         const monthlyData = articles.reduce((acc, article) => {
           const date = new Date(article.publicationDate);
-          const key = `${date.getFullYear()}-${date.getMonth() + 1}`;
-          acc[key] = (acc[key] || 0) + 1;
+          const key = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+          
+          if (!acc[key]) {
+            acc[key] = {
+              total: 0,
+              subdomains: {},
+              impactFactor: 0
+            };
+          }
+          
+          acc[key].total++;
+          acc[key].subdomains[article.subdomain] = (acc[key].subdomains[article.subdomain] || 0) + 1;
+          
           return acc;
         }, {});
 
-        // Use simple linear regression to predict trend
-        const data = Object.entries(monthlyData)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([_, count]) => count);
+        // Calculate growth rates and trends
+        const months = Object.keys(monthlyData).sort();
+        const growth = months.length > 1 ? 
+          (monthlyData[months[months.length - 1]].total - monthlyData[months[0]].total) / 
+          monthlyData[months[0]].total * 100 : 0;
 
-        const model = tf.sequential({
-          layers: [tf.layers.dense({ units: 1, inputShape: [1] })]
-        });
-        
-        model.compile({ optimizer: 'sgd', loss: 'meanSquaredError' });
-        
-        const xs = tf.tensor2d([...Array(data.length).keys()], [data.length, 1]);
-        const ys = tf.tensor2d(data, [data.length, 1]);
-        
-        await model.fit(xs, ys, { epochs: 100 });
-        
-        const prediction = model.predict(tf.tensor2d([data.length], [1, 1]));
-        const trendValue = prediction.dataSync()[0];
+        // Find trending subdomains
+        const subdomainTrends = Object.keys(radiologySubdomains).reduce((acc, subdomain) => {
+          const recent = months.slice(-3).reduce((sum, month) => 
+            sum + (monthlyData[month].subdomains[subdomain] || 0), 0);
+          const older = months.slice(-6, -3).reduce((sum, month) => 
+            sum + (monthlyData[month].subdomains[subdomain] || 0), 0);
+          acc[subdomain] = recent > older ? 'increasing' : 'stable';
+          return acc;
+        }, {});
 
         setTrends({
-          current: data[data.length - 1],
-          predicted: Math.round(trendValue),
-          growth: ((trendValue - data[data.length - 1]) / data[data.length - 1] * 100).toFixed(1)
+          monthlyGrowth: growth.toFixed(1),
+          trendingSubdomains: Object.entries(subdomainTrends)
+            .filter(([_, trend]) => trend === 'increasing')
+            .map(([subdomain]) => subdomain),
+          publicationRate: (articles.length / months.length).toFixed(1)
         });
       };
 
       analyzeArticles();
     }, [articles]);
 
+    if (!trends) return null;
+
     return (
       <div className="trend-analysis">
-        <h3>Publication Trend Analysis</h3>
+        <h3>Publication Trends</h3>
         <div className="trend-metrics">
           <div className="trend-metric">
-            <span className="metric-label">Current Rate</span>
-            <span className="metric-value">{trends.current} / month</span>
+            <span className="metric-label">Monthly Growth</span>
+            <span className="metric-value">{trends.monthlyGrowth}%</span>
           </div>
           <div className="trend-metric">
-            <span className="metric-label">Projected Growth</span>
-            <span className="metric-value">{trends.growth}%</span>
+            <span className="metric-label">Publication Rate</span>
+            <span className="metric-value">{trends.publicationRate}/month</span>
+          </div>
+          <div className="trend-metric">
+            <span className="metric-label">Trending Areas</span>
+            <span className="metric-value trending-areas">
+              {trends.trendingSubdomains.join(', ')}
+            </span>
           </div>
         </div>
       </div>
