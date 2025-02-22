@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/radiology-ai-dashboard/static/css/main.6480f611.css",
-    "main.js": "/radiology-ai-dashboard/static/js/main.49da701a.js",
+    "main.css": "/radiology-ai-dashboard/static/css/main.263daf73.css",
+    "main.js": "/radiology-ai-dashboard/static/js/main.fa517a1c.js",
     "index.html": "/radiology-ai-dashboard/index.html",
-    "main.6480f611.css.map": "/radiology-ai-dashboard/static/css/main.6480f611.css.map",
-    "main.49da701a.js.map": "/radiology-ai-dashboard/static/js/main.49da701a.js.map"
+    "main.263daf73.css.map": "/radiology-ai-dashboard/static/css/main.263daf73.css.map",
+    "main.fa517a1c.js.map": "/radiology-ai-dashboard/static/js/main.fa517a1c.js.map"
   },
   "entrypoints": [
-    "static/css/main.6480f611.css",
-    "static/js/main.49da701a.js"
+    "static/css/main.263daf73.css",
+    "static/js/main.fa517a1c.js"
   ]
 }
