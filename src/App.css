@@ -1,26 +1,26 @@
 :root {
-  /* Color Scheme */
-  --primary: #007bff;
-  --secondary: #6c757d;
-  --accent: #ffc107;
-  --success: #28a745;
-  --error: #dc3545;
-  --info: #17a2b8;
+  /* Dark theme colors */
+  --bg-primary: #030712;    /* Almost black */
+  --bg-secondary: #111827;  /* Dark blue-gray */
+  --bg-tertiary: #1f2937;   /* Lighter blue-gray */
   
-  /* Background Colors */
-  --bg-primary: #f5f7fa;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #eef1f5;
+  /* Text colors */
+  --text-primary: #f8fafc;     /* Almost white */
+  --text-secondary: #e2e8f0;   /* Light gray */
+  --text-tertiary: #94a3b8;    /* Medium gray */
   
-  /* Text Colors */
-  --text-primary: #111827;
-  --text-secondary: #374151;
-  --text-tertiary: #6b7280;
+  /* Accent colors */
+  --primary: #3b82f6;      /* Blue */
+  --secondary: #6366f1;    /* Indigo */
+  --accent: #8b5cf6;       /* Purple */
+  --success: #10b981;      /* Green */
+  --error: #ef4444;        /* Red */
+  --warning: #f59e0b;      /* Orange */
   
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  /* Shadows for dark theme */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
   
   /* Spacing Scale */
   --space-xs: 0.5rem;
@@ -81,26 +81,53 @@ body {
 }
 
 /* Enhanced Card Styling */
-.card-base {
+.card-base,
+.stat-card,
+.article-card,
+.charts-section,
+.filters-container {
   background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
   border-radius: 12px;
-  box-shadow: var(--shadow-md);
   padding: 1.5rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-md);
 }
 
-.card-base:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+/* Text styles */
+h1, h2, h3, h4 {
+  color: var(--text-primary);
+}
+
+p {
+  color: var(--text-secondary);
+}
+
+/* Fix chart text */
+.chart-container {
+  background: var(--bg-tertiary);
+}
+
+/* Fix inputs */
+.search-input,
+.date-picker {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--bg-tertiary);
+}
+
+/* Fix buttons */
+.subdomain-filter {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.subdomain-filter:hover,
+.subdomain-filter.active {
+  background: var(--primary);
+  color: var(--text-primary);
 }
 
 /* Stat Cards */
-.stat-card {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 1.5rem;
-}
-
 .stat-value {
   font-size: 2rem;
   font-weight: 700;
@@ -114,13 +141,6 @@ body {
 }
 
 /* Article Cards */
-.article-card {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1rem;
-}
-
 .article-card h4 {
   font-size: 1.25rem;
   font-weight: 600;
@@ -129,7 +149,6 @@ body {
 }
 
 .article-card p {
-  color: var(--text-secondary);
   margin: 0.75rem 0;
 }
 
@@ -157,26 +176,11 @@ body {
 
 /* Filters */
 .filters-container {
-  background: var(--bg-secondary);
-  padding: 1.5rem;
-  border-radius: 12px;
   margin-bottom: 2rem;
-  box-shadow: var(--shadow-sm);
-}
-
-.search-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 1rem;
 }
 
 /* Charts */
 .chart-container {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 1.5rem;
   height: 400px;
 }
 

@@ -395,6 +395,8 @@ function App() {
     };
 
     const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
       scales: {
         x: {
           grid: { color: 'rgba(255, 255, 255, 0.1)' },
@@ -407,7 +409,7 @@ function App() {
       },
       plugins: {
         legend: {
-          labels: { color: '#ffffff' }
+          display: false
         }
       }
     };
@@ -424,7 +426,6 @@ function App() {
                 data: weeklyData.map(data => data.count),
                 borderColor: '#3b82f6',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                fill: true,
                 tension: 0.4
               }]
             }}
