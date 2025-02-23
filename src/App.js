@@ -10,7 +10,7 @@ import 'react-calendar-heatmap/dist/styles.css';
 import { Tooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
 import * as tf from '@tensorflow/tfjs';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 import stringSimilarity from 'string-similarity';
 
 // Define radiology subdomains and their related keywords
