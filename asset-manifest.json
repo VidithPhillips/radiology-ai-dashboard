@@ -1,11 +1,11 @@
 {
   "files": {
     "main.css": "/radiology-ai-dashboard/static/css/main.ec94660d.css",
-    "main.js": "/radiology-ai-dashboard/static/js/main.203b7598.js",
+    "main.js": "/radiology-ai-dashboard/static/js/main.fe54d194.js",
     "index.html": "/radiology-ai-dashboard/index.html"
   },
   "entrypoints": [
     "static/css/main.ec94660d.css",
-    "static/js/main.203b7598.js"
+    "static/js/main.fe54d194.js"
   ]
 }
