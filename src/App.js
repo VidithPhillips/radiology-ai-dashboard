@@ -22,6 +22,26 @@ const radiologySubdomains = {
   'General/Other': [] // Catch-all category
 };
 
+// Define major clinical radiology journals
+const CLINICAL_RADIOLOGY_JOURNALS = [
+  'Radiology',
+  'European Radiology',
+  'American Journal of Roentgenology',
+  'European Journal of Radiology',
+  'Academic Radiology',
+  'Journal of Digital Imaging',
+  'Clinical Radiology',
+  'British Journal of Radiology',
+  'Radiographics',
+  'Journal of the American College of Radiology',
+  'Investigative Radiology',
+  'Abdominal Radiology',
+  'Neuroradiology',
+  'Pediatric Radiology',
+  'CardioVascular and Interventional Radiology',
+  'Emergency Radiology'
+];
+
 // Add this with the other helper functions at the top
 const getDateOfWeek = (week, year) => {
   const date = new Date(year, 0, 1 + (week - 1) * 7);
@@ -67,38 +87,41 @@ const getWeekNumber = (date) => {
   return `${d.getFullYear()}-W${weekNumber.toString().padStart(2, '0')}`;
 };
 
-// Add this component at the top level
+// Update the NavigationBar component
 const NavigationBar = ({ onSectionClick, activeSection }) => (
-  <nav className="nav-bar">
+  <nav className="nav-bar" role="navigation" aria-label="Main navigation">
     <div className="nav-container">
+      <a href="/" className="nav-logo" aria-label="Home">
+        Radiology AI Dashboard
+      </a>
       <div className="nav-links">
-        <a 
-          href="#overview" 
+        <a
+          href="#overview"
           className={`nav-link ${activeSection === 'overview' ? 'active' : ''}`}
           onClick={() => onSectionClick('overview')}
         >
           Overview
         </a>
-        <a 
-          href="#articles" 
-          className={`nav-link ${activeSection === 'articles' ? 'active' : ''}`}
-          onClick={() => onSectionClick('articles')}
+        <a
+          href="#statistics"
+          className={`nav-link ${activeSection === 'statistics' ? 'active' : ''}`}
+          onClick={() => onSectionClick('statistics')}
         >
-          Articles
+          Statistics
         </a>
-        <a 
-          href="#analytics" 
-          className={`nav-link ${activeSection === 'analytics' ? 'active' : ''}`}
-          onClick={() => onSectionClick('analytics')}
+        <a
+          href="#publications"
+          className={`nav-link ${activeSection === 'publications' ? 'active' : ''}`}
+          onClick={() => onSectionClick('publications')}
         >
-          Analytics
+          Publications
         </a>
-        <a 
-          href="#faq" 
-          className={`nav-link ${activeSection === 'faq' ? 'active' : ''}`}
-          onClick={() => onSectionClick('faq')}
+        <a
+          href="#help"
+          className={`nav-link ${activeSection === 'help' ? 'active' : ''}`}
+          onClick={() => onSectionClick('help')}
         >
-          FAQ
+          Help
         </a>
       </div>
     </div>
@@ -120,27 +143,84 @@ function App() {
   const [startDate, endDate] = dateRange;
   const [activeSection, setActiveSection] = useState('overview');
 
-  // Move searchTerms inside useMemo
+  // Update search terms to target clinical radiology journals
   const searchTerms = useMemo(() => [
-    '("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND "Diagnostic Imaging"[Mesh]',
-    '("Machine Learning"[Mesh]) AND "Radiology"[Mesh]',
-    '("Neural Networks, Computer"[Mesh]) AND "Diagnostic Imaging"[Mesh]'
+    `("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND (${
+      CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
+    })`,
+    
+    `("Machine Learning"[Mesh] OR "Neural Networks, Computer"[Mesh]) AND (${
+      CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
+    }) AND ("Clinical Trial"[Publication Type] OR "Observational Study"[Publication Type] OR "Validation Study"[Publication Type])`,
+    
+    // Additional search for clinical implementation papers
+    `("Artificial Intelligence"[Mesh] OR "Machine Learning"[Mesh]) AND (${
+      CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
+    }) AND ("Clinical Study"[Publication Type] OR "Evaluation Study"[Publication Type])`
   ], []);
 
-  // Add clinical domain filtering
+  // Enhanced clinical relevance checking
   const isClinicalPaper = (article) => {
-    const clinicalTerms = [
-      'clinical trial', 'patient outcome', 'diagnostic accuracy',
-      'sensitivity and specificity', 'retrospective study', 'prospective study',
-      'validation', 'performance evaluation', 'clinical implementation',
-      'clinical workflow', 'diagnostic performance', 'clinical practice'
+    // Check if journal is in our approved list
+    if (!CLINICAL_RADIOLOGY_JOURNALS.some(journal => 
+      article.journal.toLowerCase().includes(journal.toLowerCase())
+    )) {
+      return false;
+    }
+
+    const clinicalTerms = {
+      required: [
+        'patient', 'clinical', 'diagnostic', 'diagnosis', 'treatment',
+        'hospital', 'medical', 'healthcare', 'radiologist'
+      ],
+      modalities: [
+        'mri', 'ct', 'ultrasound', 'x-ray', 'radiograph', 'imaging',
+        'pet', 'spect', 'mammogram', 'tomography'
+      ],
+      aiTerms: [
+        'deep learning', 'machine learning', 'artificial intelligence',
+        'neural network', 'cnn', 'computer-aided', 'automated'
+      ],
+      clinicalContext: [
+        'diagnosis', 'prognosis', 'screening', 'detection', 'segmentation',
+        'classification', 'prediction', 'outcome', 'survival', 'mortality',
+        'assessment', 'evaluation', 'analysis', 'interpretation'
+      ],
+      clinicalStudyTypes: [
+        'retrospective', 'prospective', 'cohort', 'clinical trial',
+        'validation study', 'evaluation study', 'patient study',
+        'multi-center', 'single-center'
+      ]
+    };
+
+    const text = (
+      article.title + ' ' + 
+      article.abstract + ' ' + 
+      article.meshTerms.join(' ') + ' ' +
+      (article.publicationType || []).join(' ')
+    ).toLowerCase();
+
+    // Must have at least one term from each category
+    const hasRequired = clinicalTerms.required.some(term => text.includes(term));
+    const hasModality = clinicalTerms.modalities.some(term => text.includes(term));
+    const hasAI = clinicalTerms.aiTerms.some(term => text.includes(term));
+    const hasClinicalContext = clinicalTerms.clinicalContext.some(term => text.includes(term));
+    const hasStudyType = clinicalTerms.clinicalStudyTypes.some(term => text.includes(term));
+
+    // Check for explicit non-clinical indicators
+    const nonClinicalIndicators = [
+      'simulation', 'phantom', 'in-vitro', 'proof of concept',
+      'theoretical', 'framework', 'review article', 'survey',
+      'systematic review', 'meta-analysis', 'opinion', 'editorial',
+      'letter to the editor', 'technical note'
     ];
-    
-    const text = (article.title + ' ' + article.abstract + ' ' + article.meshTerms.join(' ')).toLowerCase();
-    return clinicalTerms.some(term => text.includes(term));
+    const isNonClinical = nonClinicalIndicators.some(term => text.includes(term));
+
+    return hasRequired && hasModality && hasAI && hasClinicalContext && 
+           hasStudyType && !isNonClinical;
   };
 
-  // Wrap processArticle in useCallback
+  // Enhanced article processing
   const processArticle = useCallback((item, now) => {
     const pubDateStr = item.pubdate || item.sortpubdate;
     let pubDate;
@@ -150,11 +230,8 @@ function App() {
       pubDate = now;
     }
 
-    if (!isClinicalPaper({title: item.title, abstract: item.abstract, meshTerms: item.mesh || []})) {
-      return null;
-    }
-
-    return {
+    // Enhanced metadata extraction
+    const metadata = {
       title: item.title || "No Title",
       abstract: item.abstract || "",
       authors: item.authors?.map(a => a.name) || [],
@@ -163,8 +240,18 @@ function App() {
       year: pubDate.getFullYear(),
       link: `https://pubmed.ncbi.nlm.nih.gov/${item.uid}`,
       meshTerms: item.mesh || [],
+      publicationType: item.pubtype || [],
+      chemicals: item.chemicals || [],
+      keywords: item.keywords || [],
       dateIndexed: new Date().toISOString()
     };
+
+    // Only process if it's a clinical paper
+    if (!isClinicalPaper(metadata)) {
+      return null;
+    }
+
+    return metadata;
   }, []);
 
   // Update fetchArticles dependencies
@@ -267,24 +354,43 @@ function App() {
     }
   }, [processArticle, searchTerms]);
 
+  // Enhanced data refresh logic
   const checkAndRefresh = useCallback(() => {
     const now = new Date();
     const lastRefreshDate = lastRefresh ? new Date(lastRefresh) : null;
     
-    if (!lastRefreshDate || 
-        now.getTime() - lastRefreshDate.getTime() > 24 * 60 * 60 * 1000) {
+    // Check if it's a new day
+    const isNewDay = !lastRefreshDate || 
+      lastRefreshDate.getDate() !== now.getDate() ||
+      lastRefreshDate.getMonth() !== now.getMonth() ||
+      lastRefreshDate.getFullYear() !== now.getFullYear();
+    
+    if (isNewDay) {
       fetchArticles();
       setLastRefresh(now.toISOString());
       localStorage.setItem('lastRefresh', now.toISOString());
     }
   }, [lastRefresh, fetchArticles]);
 
+  // Update useEffect to check more frequently
   useEffect(() => {
-    fetchArticles();
-    checkAndRefresh();
-    const interval = setInterval(checkAndRefresh, 60 * 60 * 1000); // Check every hour
-    return () => clearInterval(interval);
-  }, [fetchArticles, checkAndRefresh]);
+    // Initial fetch
+    if (!lastRefresh) {
+      fetchArticles();
+    }
+    
+    // Check for refresh every 30 minutes
+    const interval = setInterval(checkAndRefresh, 30 * 60 * 1000);
+    
+    // Also check when the window regains focus
+    const handleFocus = () => checkAndRefresh();
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchArticles, checkAndRefresh, lastRefresh]);
 
   // Add this FAQ data
   const faqData = [
@@ -365,9 +471,10 @@ function App() {
         labels: {
           color: '#ffffff', // Make text white
           font: {
-            size: 13,
-            family: "'Plus Jakarta Sans', sans-serif"
-          }
+            size: 14,
+            family: "'Open Sans', sans-serif"
+          },
+          padding: 20
         }
       },
       tooltip: {
@@ -375,11 +482,33 @@ function App() {
         titleColor: '#ffffff',
         bodyColor: '#ffffff',
         bodyFont: {
-          family: "'Plus Jakarta Sans', sans-serif"
+          family: "'Open Sans', sans-serif"
         },
         padding: 12,
         borderColor: '#1f2937',
         borderWidth: 1
+      }
+    },
+    scales: {
+      x: {
+        ticks: {
+          font: {
+            size: 14
+          }
+        },
+        grid: {
+          display: false
+        }
+      },
+      y: {
+        ticks: {
+          font: {
+            size: 14
+          }
+        },
+        grid: {
+          color: 'rgba(0, 0, 0, 0.1)'
+        }
       }
     }
   };
@@ -452,202 +581,19 @@ function App() {
     );
   };
 
-  // Update the PublicationHeatmap component
-  const PublicationHeatmap = ({ articles }) => {
-    const today = new Date();
-    const startDate = new Date();
-    startDate.setFullYear(today.getFullYear() - 1);
-    
-    const articlesByDate = articles.reduce((acc, article) => {
-      const date = article.publicationDate.split('T')[0];
-      acc[date] = (acc[date] || 0) + 1;
-      return acc;
-    }, {});
-    
-    const values = Object.entries(articlesByDate).map(([date, count]) => ({
-      date,
-      count
-    }));
-
-    return (
-      <div className="charts-section">
-        <h2>Publication Activity</h2>
-        <div className="heatmap-container">
-          <div className="heatmap-legend">
-            <span>Less</span>
-            {[1, 2, 3, 4].map(level => (
-              <div key={level} className={`color-scale-${level}`} />
-            ))}
-            <span>More</span>
-          </div>
-          <CalendarHeatmap
-            startDate={startDate}
-            endDate={today}
-            values={values}
-            classForValue={(value) => {
-              if (!value) return 'color-empty';
-              return `color-scale-${Math.min(4, Math.ceil(value.count/2))}`;
-            }}
-            titleForValue={(value) => {
-              if (!value) return 'No publications';
-              const date = new Date(value.date);
-              return `${date.toLocaleDateString('en-US', { 
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}: ${value.count} publication${value.count > 1 ? 's' : ''}`;
-            }}
-            showWeekdayLabels={true}
-            weekdayLabels={['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']}
-            monthLabels={['January', 'February', 'March', 'April', 'May', 'June', 
-                         'July', 'August', 'September', 'October', 'November', 'December']}
-          />
-        </div>
-      </div>
-    );
-  };
-
-  // Add a stop words list for better topic analysis
-  const stopWords = new Set([
-    'the', 'and', 'with', 'using', 'for', 'study', 'analysis', 'based',
-    'results', 'method', 'methods', 'data', 'used', 'use', 'from', 'were',
-    'was', 'that', 'this', 'research', 'artificial', 'intelligence', 'learning',
-    'deep', 'machine', 'model', 'models', 'performance'
-  ]);
-
-  // Update TopicAnalysis component
-  const TopicAnalysis = ({ articles }) => {
-    const [topics, setTopics] = useState([]);
-    
-    useEffect(() => {
-      const extractTopics = () => {
-        // Extract meaningful phrases instead of just words
-        const phrases = articles.flatMap(article => {
-          const text = article.title + ' ' + article.abstract;
-          return text.toLowerCase()
-            .match(/(?:\w+\s){2,3}\w+/g) || []; // Extract 3-4 word phrases
-        });
-        
-        const phraseFreq = {};
-        phrases.forEach(phrase => {
-          // Filter out phrases with stop words
-          if (!phrase.split(' ').every(word => stopWords.has(word))) {
-            phraseFreq[phrase] = (phraseFreq[phrase] || 0) + 1;
-          }
-        });
-
-        const topPhrases = Object.entries(phraseFreq)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 8)
-          .map(([text, value]) => ({ text, value }));
-
-        setTopics(topPhrases);
-      };
-
-      extractTopics();
-    }, [articles]);
-
-    return (
-      <div className="charts-section">
-        <h2>Key Research Topics</h2>
-        <div className="topics-grid">
-          {topics.map((topic, index) => (
-            <div key={index} className="topic-card">
-              <div className="topic-text">{topic.text}</div>
-              <div className="topic-count">{topic.value} occurrences</div>
-              <div className="topic-trend">
-                {topic.value > 5 ? '↗️ Trending' : '➡️ Stable'}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // Improve TrendAnalysis
-  const TrendAnalysis = ({ articles }) => {
-    const [trends, setTrends] = useState(null);
-
-    useEffect(() => {
-      const analyzeArticles = async () => {
-        // Group by month and subdomain
-        const monthlyData = articles.reduce((acc, article) => {
-          const date = new Date(article.publicationDate);
-          const key = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-          
-          if (!acc[key]) {
-            acc[key] = {
-              total: 0,
-              subdomains: {},
-              impactFactor: 0
-            };
-          }
-          
-          acc[key].total++;
-          acc[key].subdomains[article.subdomain] = (acc[key].subdomains[article.subdomain] || 0) + 1;
-          
-          return acc;
-        }, {});
-
-        // Calculate growth rates and trends
-        const months = Object.keys(monthlyData).sort();
-        const growth = months.length > 1 ? 
-          (monthlyData[months[months.length - 1]].total - monthlyData[months[0]].total) / 
-          monthlyData[months[0]].total * 100 : 0;
-
-        // Find trending subdomains
-        const subdomainTrends = Object.keys(radiologySubdomains).reduce((acc, subdomain) => {
-          const recent = months.slice(-3).reduce((sum, month) => 
-            sum + (monthlyData[month].subdomains[subdomain] || 0), 0);
-          const older = months.slice(-6, -3).reduce((sum, month) => 
-            sum + (monthlyData[month].subdomains[subdomain] || 0), 0);
-          acc[subdomain] = recent > older ? 'increasing' : 'stable';
-          return acc;
-        }, {});
-
-        setTrends({
-          monthlyGrowth: growth.toFixed(1),
-          trendingSubdomains: Object.entries(subdomainTrends)
-            .filter(([_, trend]) => trend === 'increasing')
-            .map(([subdomain]) => subdomain),
-          publicationRate: (articles.length / months.length).toFixed(1)
-        });
-      };
-
-      analyzeArticles();
-    }, [articles]);
-
-    if (!trends) return null;
-
-    return (
-      <div className="trend-analysis">
-        <h3>Publication Trends</h3>
-        <div className="trend-metrics">
-          <div className="trend-metric">
-            <span className="metric-label">Monthly Growth</span>
-            <span className="metric-value">{trends.monthlyGrowth}%</span>
-          </div>
-          <div className="trend-metric">
-            <span className="metric-label">Publication Rate</span>
-            <span className="metric-value">{trends.publicationRate}/month</span>
-          </div>
-          <div className="trend-metric">
-            <span className="metric-label">Trending Areas</span>
-            <span className="metric-value trending-areas">
-              {trends.trendingSubdomains.join(', ')}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Update the article rendering section
   const ArticleCard = ({ article }) => (
-    <div className="article-card">
-      <span className="article-category">
+    <article 
+      className="article-card" 
+      tabIndex="0"
+      onClick={() => window.open(article.link, '_blank', 'noopener,noreferrer')}
+      onKeyPress={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          window.open(article.link, '_blank', 'noopener,noreferrer');
+        }
+      }}
+    >
+      <span className="article-category" role="tag">
         {article.subdomain || 'General'}
       </span>
       <h3 className="article-title">
@@ -655,9 +601,11 @@ function App() {
       </h3>
       <div className="article-meta">
         <span className="article-journal">{article.journal}</span>
-        <span>{new Date(article.publicationDate).toLocaleDateString()}</span>
+        <time dateTime={article.publicationDate}>
+          {new Date(article.publicationDate).toLocaleDateString()}
+        </time>
       </div>
-    </div>
+    </article>
   );
 
   const HeroSection = ({ stats }) => (
@@ -690,35 +638,23 @@ function App() {
         activeSection={activeSection} 
       />
       <div className="dashboard">
-        <div className="dashboard-header">
-          <h1>Radiology AI Research Dashboard</h1>
-          <div className="filters-container">
-            <div className="date-range-picker">
-              <DatePicker
-                selectsRange={true}
-                startDate={startDate}
-                endDate={endDate}
-                onChange={(update) => setDateRange(update)}
-                isClearable={true}
-                placeholderText="Select date range"
-                className="date-picker"
-              />
-            </div>
-            <div className="search-container">
-              <input
-                className="search-input"
-                type="text"
-                value={searchTerm}
-                placeholder="Search articles..."
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
+        {activeSection === 'overview' && (
+          <>
+            <HeroSection stats={{
+              totalArticles: articles.length,
+              topSubdomain: Object.entries(subdomainStats)
+                .reduce((max, [key, value]) => 
+                  value > max.value ? {key, value} : max, 
+                  {key: '', value: 0}
+                ).key.split('/')[0],
+              avgAuthors: (articles.reduce((acc, curr) => 
+                acc + (curr.authors ? curr.authors.length : 0), 0) / articles.length || 0)
+                .toFixed(1)
+            }} />
+          </>
+        )}
 
-        {error ? (
-          <div className="error-message">{error}</div>
-        ) : (
+        {activeSection === 'statistics' && (
           <>
             <div className="charts-section">
               <h2>Distribution by Radiology Subdomain</h2>
@@ -726,50 +662,32 @@ function App() {
                 <Pie data={chartData} options={chartOptions} />
               </div>
             </div>
+            <WeeklyStats articles={articles} />
+          </>
+        )}
 
-            <div className="analytics-grid">
-              <div className="stat-card">
-                <div className="stat-value">{articles.length}</div>
-                <div className="stat-label">Total Articles</div>
-                <div className="trend-indicator trend-up">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M8 4L12 8L4 8L8 4Z" fill="currentColor"/>
-                  </svg>
-                  <span>Last 7 days</span>
-                </div>
+        {activeSection === 'publications' && (
+          <>
+            <div className="filters-container">
+              <div className="date-range-picker">
+                <DatePicker
+                  selectsRange={true}
+                  startDate={startDate}
+                  endDate={endDate}
+                  onChange={(update) => setDateRange(update)}
+                  isClearable={true}
+                  placeholderText="Select date range"
+                  className="date-picker"
+                />
               </div>
-              
-              <div className="stat-card">
-                <div className="stat-value">
-                  {Object.entries(subdomainStats)
-                    .reduce((max, [key, value]) => 
-                      value > max.value ? {key, value} : max, 
-                      {key: '', value: 0}
-                    ).key.split('/')[0]}
-                </div>
-                <div className="stat-label">Top Subspecialty</div>
-              </div>
-              
-              <div className="stat-card">
-                <div className="stat-value">
-                  {(articles.reduce((acc, curr) => 
-                    acc + (curr.authors ? curr.authors.length : 0), 0) / articles.length || 0)
-                    .toFixed(1)}
-                </div>
-                <div className="stat-label">Avg. Authors</div>
-              </div>
-              
-              <div className="stat-card">
-                <div className="stat-value">
-                  {Object.entries(
-                    articles.reduce((acc, curr) => {
-                      const journal = curr.journal.split('.')[0]; // Truncate journal name
-                      acc[journal] = (acc[journal] || 0) + 1;
-                      return acc;
-                    }, {})
-                  ).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'}
-                </div>
-                <div className="stat-label">Top Journal</div>
+              <div className="search-container">
+                <input
+                  className="search-input"
+                  type="text"
+                  value={searchTerm}
+                  placeholder="Search articles..."
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
             </div>
 
@@ -786,41 +704,26 @@ function App() {
             </div>
 
             <section className="articles-section">
-              <div className="articles-header">
-                <h2 className="articles-title">Recent Publications</h2>
-              </div>
               <div className="articles-grid">
                 {currentArticles.map((article, index) => (
                   <ArticleCard key={index} article={article} />
                 ))}
               </div>
-              {/* Pagination */}
+              {/* Add pagination here */}
             </section>
-
-            <WeeklyStats articles={articles} />
-
-            <PublicationHeatmap articles={articles} />
-
-            <TopicAnalysis articles={articles} />
-
-            <TrendAnalysis articles={articles} />
-
-            <button className="faq-toggle" onClick={() => setShowFAQ(!showFAQ)}>
-              {showFAQ ? 'Hide FAQ' : 'Show FAQ'}
-            </button>
-
-            {showFAQ && (
-              <div className="faq-section">
-                <h2>Frequently Asked Questions</h2>
-                {faqData.map((faq, index) => (
-                  <div key={index} className="faq-item">
-                    <div className="faq-question">{faq.question}</div>
-                    <div className="faq-answer">{faq.answer}</div>
-                  </div>
-                ))}
-              </div>
-            )}
           </>
+        )}
+
+        {activeSection === 'help' && (
+          <div className="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            {faqData.map((faq, index) => (
+              <div key={index} className="faq-item">
+                <div className="faq-question">{faq.question}</div>
+                <div className="faq-answer">{faq.answer}</div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </>
