@@ -44,25 +44,28 @@ const radiologySubdomains = {
   'General/Other': [] // Catch-all category
 };
 
-// Define major clinical radiology journals
-const CLINICAL_RADIOLOGY_JOURNALS = [
+// Define top radiology journals with impact factors
+const TOP_JOURNALS = [
   'Radiology',
   'European Radiology',
-  'American Journal of Roentgenology',
-  'European Journal of Radiology',
-  'Academic Radiology',
-  'Journal of Digital Imaging',
-  'Clinical Radiology',
-  'British Journal of Radiology',
-  'Radiographics',
   'Journal of the American College of Radiology',
-  'Investigative Radiology',
-  'Abdominal Radiology',
-  'Neuroradiology',
-  'Pediatric Radiology',
-  'CardioVascular and Interventional Radiology',
-  'Emergency Radiology'
+  'European Journal of Radiology',
+  'American Journal of Roentgenology',
+  'RadioGraphics'
 ];
+
+// Smart search query for high-impact papers
+const buildSearchQuery = () => {
+  const journalQuery = TOP_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ');
+  
+  return `(
+    ("artificial intelligence"[Title] OR "deep learning"[Title] OR "machine learning"[Title])
+    AND (${journalQuery})
+    AND ("2023"[Date - Publication] OR "2024"[Date - Publication])
+    AND (("clinical"[Title/Abstract] OR "validation"[Title/Abstract] OR "implementation"[Title/Abstract])
+    NOT ("letter"[Publication Type] OR "editorial"[Publication Type] OR "comment"[Publication Type]))
+  )`;
+};
 
 // Add this with the other helper functions at the top
 const getDateOfWeek = (week, year) => {
@@ -78,17 +81,43 @@ function formatDate(date) {
   return `${yyyy}/${mm}/${dd}`;
 }
 
-// Categorize article by subdomain based on title and abstract
-function categorizeArticle(article) {
+// Improved categorization system
+const categorizeArticle = (article) => {
   const text = (article.title + ' ' + article.abstract).toLowerCase();
   
-  for (const [subdomain, keywords] of Object.entries(radiologySubdomains)) {
-    if (keywords.some(keyword => text.includes(keyword))) {
-      return subdomain;
+  // Define categories with weighted keywords
+  const categories = {
+    'Clinical AI Applications': {
+      keywords: ['diagnosis', 'prediction', 'detection', 'classification', 'segmentation'],
+      weight: 0
+    },
+    'Performance Validation': {
+      keywords: ['accuracy', 'sensitivity', 'specificity', 'validation', 'performance'],
+      weight: 0
+    },
+    'Implementation Studies': {
+      keywords: ['implementation', 'workflow', 'integration', 'clinical practice', 'deployment'],
+      weight: 0
+    },
+    'Technical Innovation': {
+      keywords: ['novel', 'algorithm', 'framework', 'architecture', 'methodology'],
+      weight: 0
     }
-  }
-  return 'General/Other';
-}
+  };
+
+  // Calculate weights for each category
+  Object.keys(categories).forEach(category => {
+    categories[category].weight = categories[category].keywords
+      .filter(keyword => text.includes(keyword)).length;
+  });
+
+  // Return category with highest weight
+  return Object.entries(categories)
+    .reduce((max, [category, data]) => 
+      data.weight > max.weight ? {category, weight: data.weight} : max,
+      {category: 'Other', weight: 0}
+    ).category;
+};
 
 // Add this helper function for week-based date handling
 const getWeekDates = (date = new Date()) => {
@@ -189,254 +218,60 @@ function App() {
     return null;
   };
 
-  // Move searchTerms inside App
-  const searchTerms = useMemo(() => [
-    `("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh] OR "Machine Learning"[Mesh]) AND (${
-      CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
-    })`,
-    `("Artificial Intelligence" OR "Deep Learning" OR "Machine Learning") AND (${
-      CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
-    }) AND ("Clinical Trial"[Publication Type] OR "Validation Studies"[Publication Type])`,
-    `(artificial intelligence[Title/Abstract] OR machine learning[Title/Abstract]) AND (${
-      CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
-    })`
-  ], []);
-
-  // Add updateStats function
-  const updateStats = useCallback((articles) => {
-    const stats = {};
-    articles.forEach(article => {
-      const subdomain = categorizeArticle(article);
-      stats[subdomain] = (stats[subdomain] || 0) + 1;
-    });
-    setSubdomainStats(stats);
-  }, []);
-
-  // Add isClinicalPaper function
-  const isClinicalPaper = useCallback((article) => {
-    if (!CLINICAL_RADIOLOGY_JOURNALS.some(journal => 
-      article.journal.toLowerCase().includes(journal.toLowerCase())
-    )) {
-      return false;
-    }
-
-    const text = (
-      article.title + ' ' + 
-      article.abstract
-    ).toLowerCase();
-
-    const hasAI = text.includes('artificial intelligence') || 
-                  text.includes('machine learning') || 
-                  text.includes('deep learning') ||
-                  text.includes('neural network');
-
-    const hasImaging = text.includes('imaging') ||
-                      text.includes('radiology') ||
-                      text.includes('radiological') ||
-                      text.includes('radiographic');
-
-    const nonClinicalIndicators = [
-      'letter to editor',
-      'editorial',
-      'erratum',
-      'retraction'
-    ];
-    const isNonClinical = nonClinicalIndicators.some(term => text.includes(term));
-
-    return hasAI && hasImaging && !isNonClinical;
-  }, []);
-
-  // Add processArticle function
-  const processArticle = useCallback((item, now) => {
-    const pubDateStr = item.pubdate || item.sortpubdate;
-    let pubDate;
-    try {
-      pubDate = pubDateStr ? new Date(pubDateStr) : now;
-    } catch (e) {
-      pubDate = now;
-    }
-
-    const metadata = {
-      title: item.title || "No Title",
-      abstract: item.abstract || "",
-      authors: item.authors?.map(a => a.name) || [],
-      journal: item.fulljournalname || "",
-      publicationDate: pubDate.toISOString(),
-      year: pubDate.getFullYear(),
-      link: `https://pubmed.ncbi.nlm.nih.gov/${item.uid}`,
-      meshTerms: item.mesh || [],
-      publicationType: item.pubtype || [],
-      chemicals: item.chemicals || [],
-      keywords: item.keywords || [],
-      dateIndexed: new Date().toISOString()
-    };
-
-    return isClinicalPaper(metadata) ? metadata : null;
-  }, [isClinicalPaper]);
-
-  // Move fetchGoogleScholar inside App
-  const fetchGoogleScholar = useCallback(async () => {
-    console.log('Fetching from Google Scholar...');
-    
-    try {
-      const searchUrl = `${GOOGLE_SCHOLAR_CONFIG.baseUrl}${encodeURIComponent(
-        `https://scholar.google.com/scholar?q=${
-          encodeURIComponent(GOOGLE_SCHOLAR_CONFIG.searchQuery)
-        }&as_ylo=${new Date().getFullYear() - GOOGLE_SCHOLAR_CONFIG.yearRange}`
-      )}`;
-
-      const response = await axios.get(searchUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
-
-      const $ = cheerio.load(response.data);
-      const articles = [];
-
-      $('.gs_r').each((i, element) => {
-        const $element = $(element);
-        
-        const article = {
-          title: $element.find('.gs_rt').text().trim(),
-          authors: $element.find('.gs_a').text().trim(),
-          abstract: $element.find('.gs_rs').text().trim(),
-          link: $element.find('.gs_rt a').attr('href'),
-          citations: parseInt($element.find('.gs_fl a:contains("Cited by")').text().match(/\d+/) || '0'),
-          publicationDate: new Date().toISOString(), // Approximate date
-          source: 'Google Scholar'
-        };
-
-        // Only include if it matches our clinical criteria
-        if (isClinicalPaper(article)) {
-          articles.push(article);
-        }
-      });
-
-      return articles;
-    } catch (error) {
-      console.error('Error fetching from Google Scholar:', error);
-      return [];
-    }
-  }, [isClinicalPaper]);
-
-  // Move fetchPubMedArticles inside App
-  const fetchPubMedArticles = useCallback(async () => {
-    const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
-    
-    try {
-      // Get current date and 30 days ago
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
-      
-      const searchParams = {
-        db: 'pubmed',
-        retmax: 100,
-        retmode: 'json',
-        sort: 'date',
-        // Remove API key requirement
-        tool: 'radiology-ai-dashboard',
-        email: 'user@example.com', // Required by PubMed for tracking
-        mindate: thirtyDaysAgo.toISOString().split('T')[0],
-        maxdate: new Date().toISOString().split('T')[0]
-      };
-
-      const articles = [];
-      
-      // Use a public CORS proxy
-      const corsProxy = 'https://corsproxy.io/?';
-      
-      // Fetch articles for each search term with proper rate limiting
-      for (const term of searchTerms) {
-        const searchUrl = `${corsProxy}${encodeURIComponent(
-          `${baseUrl}/esearch.fcgi?${new URLSearchParams({
-            ...searchParams,
-            term: term
-          })}`
-        )}`;
-
-        const searchResponse = await fetchWithRetry(searchUrl);
-        const ids = searchResponse.data.esearchresult.idlist;
-
-        if (ids.length > 0) {
-          // Fetch details in batches of 5 (reduced from 10 to avoid rate limits)
-          for (let i = 0; i < ids.length; i += 5) {
-            const batchIds = ids.slice(i, i + 5);
-            const summaryUrl = `${corsProxy}${encodeURIComponent(
-              `${baseUrl}/esummary.fcgi?${new URLSearchParams({
-                db: 'pubmed',
-                id: batchIds.join(','),
-                retmode: 'json',
-                tool: 'radiology-ai-dashboard',
-                email: 'user@example.com'
-              })}`
-            )}`;
-
-            // Add longer delay between requests
-            await delay(1000);
-            
-            const detailsResponse = await fetchWithRetry(summaryUrl);
-            
-            Object.values(detailsResponse.data.result)
-              .filter(item => item?.uid)
-              .forEach(item => {
-                const processedArticle = processArticle(item, new Date());
-                if (processedArticle) {
-                  articles.push(processedArticle);
-                }
-              });
-          }
-        }
-      }
-
-      return articles;
-    } catch (error) {
-      console.error('Error fetching from PubMed:', error);
-      return [];
-    }
-  }, [searchTerms, processArticle]);
-
-  // Update fetchArticles dependencies
+  // Updated fetch function
   const fetchArticles = useCallback(async () => {
     setLoading(true);
-    console.log('Fetching articles from multiple sources...');
-    
     try {
-      // Fetch from both sources in parallel
-      const [pubmedArticles, scholarArticles] = await Promise.all([
-        fetchPubMedArticles(),
-        fetchGoogleScholar()
-      ]);
-
-      // Combine and deduplicate articles
-      const combined = [...pubmedArticles];
+      const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+      const searchQuery = buildSearchQuery();
       
-      scholarArticles.forEach(scholarArticle => {
-        // Check if article already exists (by title similarity)
-        const isDuplicate = combined.some(article => 
-          stringSimilarity.compareTwoStrings(
-            article.title.toLowerCase(),
-            scholarArticle.title.toLowerCase()
-          ) > 0.8
-        );
+      const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${
+        encodeURIComponent(searchQuery)
+      }&retmax=50&sort=relevance&retmode=json`;
+      
+      const searchResponse = await axios.get(searchUrl);
+      const ids = searchResponse.data.esearchresult.idlist;
 
-        if (!isDuplicate) {
-          combined.push(scholarArticle);
-        }
-      });
+      if (ids.length > 0) {
+        const summaryUrl = `${baseUrl}/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`;
+        const detailsResponse = await axios.get(summaryUrl);
+        
+        const articles = Object.values(detailsResponse.data.result)
+          .filter(item => item?.uid)
+          .map(item => ({
+            title: item.title,
+            authors: item.authors?.map(a => a.name) || [],
+            journal: item.fulljournalname || "",
+            publicationDate: item.pubdate || new Date().toISOString(),
+            link: `https://pubmed.ncbi.nlm.nih.gov/${item.uid}`,
+            abstract: item.abstract || "",
+            category: categorizeArticle(item),
+            citationCount: 0, // We could add citation count if needed
+            impactFactor: getJournalImpactFactor(item.fulljournalname)
+          }))
+          .sort((a, b) => b.impactFactor - a.impactFactor) // Sort by journal impact factor
+          .slice(0, 10); // Get top 10 papers
 
-      // Sort by date (newest first)
-      combined.sort((a, b) => new Date(b.publicationDate) - new Date(a.publicationDate));
-
-      setArticles(combined);
-      updateStats(combined);
+        setArticles(articles);
+        updateStats(articles);
+      }
     } catch (error) {
       console.error('Error fetching articles:', error);
-      setError("Failed to fetch articles. Please try again later.");
+      setError('Failed to load articles. Please try again later.');
     } finally {
       setLoading(false);
     }
-  }, [fetchPubMedArticles, fetchGoogleScholar]);
+  }, []);
+
+  // Update stats function
+  const updateStats = (articles) => {
+    const stats = {};
+    articles.forEach(article => {
+      const subdomain = article.category;
+      stats[subdomain] = (stats[subdomain] || 0) + 1;
+    });
+    setSubdomainStats(stats);
+  };
 
   // Enhanced data refresh logic
   const checkAndRefresh = useCallback(() => {
@@ -551,7 +386,7 @@ function App() {
   // Update the filtering logic to include subdomain filtering
   const filteredArticles = getFilteredArticles().filter(article => {
     const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSubdomain = !selectedSubdomain || article.subdomain === selectedSubdomain;
+    const matchesSubdomain = !selectedSubdomain || article.category === selectedSubdomain;
     return matchesSearch && matchesSubdomain;
   });
 
@@ -673,7 +508,7 @@ function App() {
       onClick={() => window.open(article.link, '_blank', 'noopener,noreferrer')}
     >
       <span className="article-category" role="tag">
-        {article.subdomain || 'General'}
+        {article.category || 'General'}
       </span>
       <h3 className="article-title">
         {article.title}
@@ -681,7 +516,7 @@ function App() {
       <div className="article-meta">
         <span className="article-journal">
           {article.journal || article.source}
-          {article.citations > 0 && ` • ${article.citations} citations`}
+          {article.citationCount > 0 && ` • ${article.citationCount} citations`}
         </span>
         <time dateTime={article.publicationDate}>
           {new Date(article.publicationDate).toLocaleDateString()}
@@ -712,6 +547,20 @@ function App() {
       </div>
     </section>
   );
+
+  // Helper function to get journal impact factor
+  const getJournalImpactFactor = (journal) => {
+    const impactFactors = {
+      'Radiology': 19.8,
+      'European Radiology': 7.8,
+      'Journal of the American College of Radiology': 4.3,
+      'European Journal of Radiology': 3.8,
+      'American Journal of Roentgenology': 3.7,
+      'RadioGraphics': 3.5
+    };
+    
+    return impactFactors[journal] || 0;
+  };
 
   return (
     <>
