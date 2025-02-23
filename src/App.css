@@ -31,6 +31,9 @@
 /* Modern Font Import */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
+/* Import Open Sans font */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap');
+
 /* Global Reset & Base Styles */
 * {
   margin: 0;
@@ -39,11 +42,13 @@
 }
 
 body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  font-family: 'Open Sans', sans-serif;
+  background: var(--color-background);
+  color: var(--color-text);
   min-height: 100vh;
   line-height: 1.5;
+  font-size: var(--font-size-base);
+  background-image: url('data:image/svg+xml,...'); /* Radiology-themed pattern */
 }
 
 /* Layout Container */
@@ -70,14 +75,12 @@ body::before {
 
 /* Navigation Bar */
 .nav-bar {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  background: rgba(28, 28, 37, 0.98);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
   z-index: 100;
+  padding: var(--spacing-md) 0;
 }
 
 .nav-container {
@@ -106,37 +109,35 @@ body::before {
 }
 
 .nav-link {
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   text-decoration: none;
-  padding: 8px 0;
+  padding: var(--spacing-sm) 0;
   border-bottom: 2px solid transparent;
-  transition: all 0.3s ease;
+  transition: var(--transition-base);
 }
 
 .nav-link:hover,
 .nav-link.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--accent-blue);
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 /* Enhanced Header */
 .dashboard-header {
-  grid-column: span 12;
+  padding: var(--spacing-xl) 0;
   text-align: center;
-  padding: 80px 0 48px;
-  margin-bottom: 48px;
-  position: relative;
+  background: var(--color-surface);
+  margin-bottom: var(--spacing-xl);
+  box-shadow: var(--shadow-sm);
 }
 
 .dashboard-header h1 {
-  font-size: 42px;
+  font-size: var(--font-size-2xl);
   font-weight: 700;
-  background: linear-gradient(135deg, var(--text-primary), var(--accent-blue));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 16px;
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-md);
 }
 
 /* Subspecialty Navigation */
@@ -219,10 +220,9 @@ body::before {
 }
 
 .chart-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 24px;
+  font-size: var(--font-size-xl);
+  color: var(--color-text);
+  margin-bottom: var(--spacing-md);
 }
 
 /* Distribution Section - Clean Layout */
@@ -332,6 +332,7 @@ body::before {
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
+  padding: var(--spacing-lg);
 }
 
 /* Remove Key Research Topics */
@@ -421,7 +422,7 @@ body::before {
   }
   
   .dashboard-header h1 {
-    font-size: 32px;
+    font-size: 28px;
   }
   
   .nav-links {
@@ -499,4 +500,148 @@ body::before {
 .quick-stat-label {
   color: var(--text-secondary);
   font-size: 14px;
+}
+
+/* Professional Color System */
+:root {
+  --color-primary: #005F73;
+  --color-primary-light: #0A9396;
+  --color-accent: #94D2BD;
+  --color-background: #F5F5F5;
+  --color-surface: #FFFFFF;
+  --color-text: #1A1A1A;
+  --color-text-secondary: #4A4A4A;
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  
+  /* Typography */
+  --font-size-base: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 32px;
+  
+  /* Spacing */
+  --spacing-sm: 8px;
+  --spacing-md: 15px;
+  --spacing-lg: 20px;
+  --spacing-xl: 30px;
+  
+  /* Transitions */
+  --transition-base: all 0.3s ease;
+}
+
+/* Analytics Cards */
+.analytics-card {
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: var(--spacing-md);
+  margin: var(--spacing-lg) 0;
+  box-shadow: var(--shadow-md);
+  transition: var(--transition-base);
+}
+
+.analytics-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Responsive Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-lg);
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-header h1 {
+    font-size: 28px;
+  }
+}
+
+/* Accessibility Improvements */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-state {
+  text-align: center;
+  padding: 48px;
+  color: var(--color-text);
+}
+
+.error-state button {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.article-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.article-source.google-scholar {
+  color: var(--accent-blue);
+}
+
+.article-source.pubmed {
+  color: var(--accent-green);
+}
+
+.article-citations {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
