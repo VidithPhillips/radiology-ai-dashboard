@@ -67,6 +67,44 @@ const getWeekNumber = (date) => {
   return `${d.getFullYear()}-W${weekNumber.toString().padStart(2, '0')}`;
 };
 
+// Add this component at the top level
+const NavigationBar = ({ onSectionClick, activeSection }) => (
+  <nav className="nav-bar">
+    <div className="nav-container">
+      <div className="nav-links">
+        <a 
+          href="#overview" 
+          className={`nav-link ${activeSection === 'overview' ? 'active' : ''}`}
+          onClick={() => onSectionClick('overview')}
+        >
+          Overview
+        </a>
+        <a 
+          href="#articles" 
+          className={`nav-link ${activeSection === 'articles' ? 'active' : ''}`}
+          onClick={() => onSectionClick('articles')}
+        >
+          Articles
+        </a>
+        <a 
+          href="#analytics" 
+          className={`nav-link ${activeSection === 'analytics' ? 'active' : ''}`}
+          onClick={() => onSectionClick('analytics')}
+        >
+          Analytics
+        </a>
+        <a 
+          href="#faq" 
+          className={`nav-link ${activeSection === 'faq' ? 'active' : ''}`}
+          onClick={() => onSectionClick('faq')}
+        >
+          FAQ
+        </a>
+      </div>
+    </div>
+  </nav>
+);
+
 function App() {
   const [articles, setArticles] = useState([]);
   const [subdomainStats, setSubdomainStats] = useState({});
@@ -80,6 +118,7 @@ function App() {
   const [lastRefresh, setLastRefresh] = useState(localStorage.getItem('lastRefresh') || null);
   const [dateRange, setDateRange] = useState([null, null]);
   const [startDate, endDate] = dateRange;
+  const [activeSection, setActiveSection] = useState('overview');
 
   // Move searchTerms inside useMemo
   const searchTerms = useMemo(() => [
@@ -621,141 +660,170 @@ function App() {
     </div>
   );
 
-  return (
-    <div className="dashboard">
-      <div className="dashboard-header">
-        <h1>Radiology AI Research Dashboard</h1>
-        <div className="filters-container">
-          <div className="date-range-picker">
-            <DatePicker
-              selectsRange={true}
-              startDate={startDate}
-              endDate={endDate}
-              onChange={(update) => setDateRange(update)}
-              isClearable={true}
-              placeholderText="Select date range"
-              className="date-picker"
-            />
-          </div>
-          <div className="search-container">
-            <input
-              className="search-input"
-              type="text"
-              value={searchTerm}
-              placeholder="Search articles..."
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+  const HeroSection = ({ stats }) => (
+    <section className="hero-section">
+      <h1 className="hero-title">Radiology AI Research Dashboard</h1>
+      <p className="hero-subtitle">
+        Track and analyze the latest developments in AI-powered radiology research
+      </p>
+      <div className="quick-stats">
+        <div className="quick-stat">
+          <div className="quick-stat-value">{stats.totalArticles}</div>
+          <div className="quick-stat-label">Publications</div>
+        </div>
+        <div className="quick-stat">
+          <div className="quick-stat-value">{stats.topSubdomain}</div>
+          <div className="quick-stat-label">Top Specialty</div>
+        </div>
+        <div className="quick-stat">
+          <div className="quick-stat-value">{stats.avgAuthors}</div>
+          <div className="quick-stat-label">Avg. Authors</div>
         </div>
       </div>
+    </section>
+  );
 
-      {error ? (
-        <div className="error-message">{error}</div>
-      ) : (
-        <>
-          <div className="charts-section">
-            <h2>Distribution by Radiology Subdomain</h2>
-            <div className="chart-container">
-              <Pie data={chartData} options={chartOptions} />
+  return (
+    <>
+      <NavigationBar 
+        onSectionClick={setActiveSection} 
+        activeSection={activeSection} 
+      />
+      <div className="dashboard">
+        <div className="dashboard-header">
+          <h1>Radiology AI Research Dashboard</h1>
+          <div className="filters-container">
+            <div className="date-range-picker">
+              <DatePicker
+                selectsRange={true}
+                startDate={startDate}
+                endDate={endDate}
+                onChange={(update) => setDateRange(update)}
+                isClearable={true}
+                placeholderText="Select date range"
+                className="date-picker"
+              />
+            </div>
+            <div className="search-container">
+              <input
+                className="search-input"
+                type="text"
+                value={searchTerm}
+                placeholder="Search articles..."
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
           </div>
+        </div>
 
-          <div className="analytics-grid">
-            <div className="stat-card">
-              <div className="stat-value">{articles.length}</div>
-              <div className="stat-label">Total Articles</div>
-              <div className="trend-indicator trend-up">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M8 4L12 8L4 8L8 4Z" fill="currentColor"/>
-                </svg>
-                <span>Last 7 days</span>
+        {error ? (
+          <div className="error-message">{error}</div>
+        ) : (
+          <>
+            <div className="charts-section">
+              <h2>Distribution by Radiology Subdomain</h2>
+              <div className="chart-container">
+                <Pie data={chartData} options={chartOptions} />
               </div>
             </div>
-            
-            <div className="stat-card">
-              <div className="stat-value">
-                {Object.entries(subdomainStats)
-                  .reduce((max, [key, value]) => 
-                    value > max.value ? {key, value} : max, 
-                    {key: '', value: 0}
-                  ).key.split('/')[0]}
-              </div>
-              <div className="stat-label">Top Subspecialty</div>
-            </div>
-            
-            <div className="stat-card">
-              <div className="stat-value">
-                {(articles.reduce((acc, curr) => 
-                  acc + (curr.authors ? curr.authors.length : 0), 0) / articles.length || 0)
-                  .toFixed(1)}
-              </div>
-              <div className="stat-label">Avg. Authors</div>
-            </div>
-            
-            <div className="stat-card">
-              <div className="stat-value">
-                {Object.entries(
-                  articles.reduce((acc, curr) => {
-                    const journal = curr.journal.split('.')[0]; // Truncate journal name
-                    acc[journal] = (acc[journal] || 0) + 1;
-                    return acc;
-                  }, {})
-                ).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'}
-              </div>
-              <div className="stat-label">Top Journal</div>
-            </div>
-          </div>
 
-          <div className="subdomain-filters">
-            {Object.keys(radiologySubdomains).map(domain => (
-              <button
-                key={domain}
-                className={`subdomain-filter ${selectedSubdomain === domain ? 'active' : ''}`}
-                onClick={() => setSelectedSubdomain(selectedSubdomain === domain ? null : domain)}
-              >
-                {domain}
-              </button>
-            ))}
-          </div>
-
-          <section className="articles-section">
-            <div className="articles-header">
-              <h2 className="articles-title">Recent Publications</h2>
-            </div>
-            <div className="articles-grid">
-              {currentArticles.map((article, index) => (
-                <ArticleCard key={index} article={article} />
-              ))}
-            </div>
-            {/* Pagination */}
-          </section>
-
-          <WeeklyStats articles={articles} />
-
-          <PublicationHeatmap articles={articles} />
-
-          <TopicAnalysis articles={articles} />
-
-          <TrendAnalysis articles={articles} />
-
-          <button className="faq-toggle" onClick={() => setShowFAQ(!showFAQ)}>
-            {showFAQ ? 'Hide FAQ' : 'Show FAQ'}
-          </button>
-
-          {showFAQ && (
-            <div className="faq-section">
-              <h2>Frequently Asked Questions</h2>
-              {faqData.map((faq, index) => (
-                <div key={index} className="faq-item">
-                  <div className="faq-question">{faq.question}</div>
-                  <div className="faq-answer">{faq.answer}</div>
+            <div className="analytics-grid">
+              <div className="stat-card">
+                <div className="stat-value">{articles.length}</div>
+                <div className="stat-label">Total Articles</div>
+                <div className="trend-indicator trend-up">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 4L12 8L4 8L8 4Z" fill="currentColor"/>
+                  </svg>
+                  <span>Last 7 days</span>
                 </div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-value">
+                  {Object.entries(subdomainStats)
+                    .reduce((max, [key, value]) => 
+                      value > max.value ? {key, value} : max, 
+                      {key: '', value: 0}
+                    ).key.split('/')[0]}
+                </div>
+                <div className="stat-label">Top Subspecialty</div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-value">
+                  {(articles.reduce((acc, curr) => 
+                    acc + (curr.authors ? curr.authors.length : 0), 0) / articles.length || 0)
+                    .toFixed(1)}
+                </div>
+                <div className="stat-label">Avg. Authors</div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-value">
+                  {Object.entries(
+                    articles.reduce((acc, curr) => {
+                      const journal = curr.journal.split('.')[0]; // Truncate journal name
+                      acc[journal] = (acc[journal] || 0) + 1;
+                      return acc;
+                    }, {})
+                  ).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'}
+                </div>
+                <div className="stat-label">Top Journal</div>
+              </div>
+            </div>
+
+            <div className="subdomain-filters">
+              {Object.keys(radiologySubdomains).map(domain => (
+                <button
+                  key={domain}
+                  className={`subdomain-filter ${selectedSubdomain === domain ? 'active' : ''}`}
+                  onClick={() => setSelectedSubdomain(selectedSubdomain === domain ? null : domain)}
+                >
+                  {domain}
+                </button>
               ))}
             </div>
-          )}
-        </>
-      )}
-    </div>
+
+            <section className="articles-section">
+              <div className="articles-header">
+                <h2 className="articles-title">Recent Publications</h2>
+              </div>
+              <div className="articles-grid">
+                {currentArticles.map((article, index) => (
+                  <ArticleCard key={index} article={article} />
+                ))}
+              </div>
+              {/* Pagination */}
+            </section>
+
+            <WeeklyStats articles={articles} />
+
+            <PublicationHeatmap articles={articles} />
+
+            <TopicAnalysis articles={articles} />
+
+            <TrendAnalysis articles={articles} />
+
+            <button className="faq-toggle" onClick={() => setShowFAQ(!showFAQ)}>
+              {showFAQ ? 'Hide FAQ' : 'Show FAQ'}
+            </button>
+
+            {showFAQ && (
+              <div className="faq-section">
+                <h2>Frequently Asked Questions</h2>
+                {faqData.map((faq, index) => (
+                  <div key={index} className="faq-item">
+                    <div className="faq-question">{faq.question}</div>
+                    <div className="faq-answer">{faq.answer}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </>
   );
 }
 
