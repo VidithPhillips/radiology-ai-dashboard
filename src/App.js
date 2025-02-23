@@ -10,6 +10,8 @@ import 'react-calendar-heatmap/dist/styles.css';
 import { Tooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
 import * as tf from '@tensorflow/tfjs';
+import cheerio from 'cheerio';
+import stringSimilarity from 'string-similarity';
 
 // Define radiology subdomains and their related keywords
 const radiologySubdomains = {
@@ -128,6 +130,158 @@ const NavigationBar = ({ onSectionClick, activeSection }) => (
   </nav>
 );
 
+// Update Google Scholar configuration
+const GOOGLE_SCHOLAR_CONFIG = {
+  baseUrl: 'https://corsproxy.io/?',
+  searchQuery: 'artificial intelligence radiology clinical',
+  yearRange: 1
+};
+
+// Update the fetchGoogleScholar function
+const fetchGoogleScholar = useCallback(async () => {
+  console.log('Fetching from Google Scholar...');
+  
+  try {
+    const searchUrl = `${GOOGLE_SCHOLAR_CONFIG.baseUrl}${encodeURIComponent(
+      `https://scholar.google.com/scholar?q=${
+        encodeURIComponent(GOOGLE_SCHOLAR_CONFIG.searchQuery)
+      }&as_ylo=${new Date().getFullYear() - GOOGLE_SCHOLAR_CONFIG.yearRange}`
+    )}`;
+
+    const response = await axios.get(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    const $ = cheerio.load(response.data);
+    const articles = [];
+
+    $('.gs_r').each((i, element) => {
+      const $element = $(element);
+      
+      const article = {
+        title: $element.find('.gs_rt').text().trim(),
+        authors: $element.find('.gs_a').text().trim(),
+        abstract: $element.find('.gs_rs').text().trim(),
+        link: $element.find('.gs_rt a').attr('href'),
+        citations: parseInt($element.find('.gs_fl a:contains("Cited by")').text().match(/\d+/) || '0'),
+        publicationDate: new Date().toISOString(), // Approximate date
+        source: 'Google Scholar'
+      };
+
+      // Only include if it matches our clinical criteria
+      if (isClinicalPaper(article)) {
+        articles.push(article);
+      }
+    });
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching from Google Scholar:', error);
+    return [];
+  }
+}, []);
+
+// Add these utility functions at the top
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const fetchWithRetry = async (url, options = {}, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await axios(url, {
+        ...options,
+        timeout: 10000 // 10 second timeout
+      });
+      
+      // Add longer delay between requests
+      await delay(1500);
+      return response;
+    } catch (error) {
+      console.error(`Attempt ${i + 1} failed:`, error.message);
+      if (i === retries - 1) throw error;
+      // Longer exponential backoff
+      await delay(2000 * Math.pow(2, i));
+    }
+  }
+};
+
+// Update the fetchPubMedArticles function
+const fetchPubMedArticles = useCallback(async () => {
+  const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+  
+  try {
+    // Get current date and 30 days ago
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+    
+    const searchParams = {
+      db: 'pubmed',
+      retmax: 100,
+      retmode: 'json',
+      sort: 'date',
+      // Remove API key requirement
+      tool: 'radiology-ai-dashboard',
+      email: 'user@example.com', // Required by PubMed for tracking
+      mindate: thirtyDaysAgo.toISOString().split('T')[0],
+      maxdate: new Date().toISOString().split('T')[0]
+    };
+
+    const articles = [];
+    
+    // Use a public CORS proxy
+    const corsProxy = 'https://corsproxy.io/?';
+    
+    // Fetch articles for each search term with proper rate limiting
+    for (const term of searchTerms) {
+      const searchUrl = `${corsProxy}${encodeURIComponent(
+        `${baseUrl}/esearch.fcgi?${new URLSearchParams({
+          ...searchParams,
+          term: term
+        })}`
+      )}`;
+
+      const searchResponse = await fetchWithRetry(searchUrl);
+      const ids = searchResponse.data.esearchresult.idlist;
+
+      if (ids.length > 0) {
+        // Fetch details in batches of 5 (reduced from 10 to avoid rate limits)
+        for (let i = 0; i < ids.length; i += 5) {
+          const batchIds = ids.slice(i, i + 5);
+          const summaryUrl = `${corsProxy}${encodeURIComponent(
+            `${baseUrl}/esummary.fcgi?${new URLSearchParams({
+              db: 'pubmed',
+              id: batchIds.join(','),
+              retmode: 'json',
+              tool: 'radiology-ai-dashboard',
+              email: 'user@example.com'
+            })}`
+          )}`;
+
+          // Add longer delay between requests
+          await delay(1000);
+          
+          const detailsResponse = await fetchWithRetry(summaryUrl);
+          
+          Object.values(detailsResponse.data.result)
+            .filter(item => item?.uid)
+            .forEach(item => {
+              const processedArticle = processArticle(item, new Date());
+              if (processedArticle) {
+                articles.push(processedArticle);
+              }
+            });
+        }
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching from PubMed:', error);
+    return [];
+  }
+}, [searchTerms, processArticle]);
+
 function App() {
   const [articles, setArticles] = useState([]);
   const [subdomainStats, setSubdomainStats] = useState({});
@@ -143,20 +297,38 @@ function App() {
   const [startDate, endDate] = dateRange;
   const [activeSection, setActiveSection] = useState('overview');
 
+  // Add these at the top level of your App component
+  const CACHE_KEY = 'radiology_ai_articles';
+  const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
+  // Add this function to handle caching
+  const getCachedArticles = () => {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { timestamp, data } = JSON.parse(cached);
+      if (Date.now() - timestamp < CACHE_DURATION) {
+        return data;
+      }
+    }
+    return null;
+  };
+
   // Update search terms to target clinical radiology journals
   const searchTerms = useMemo(() => [
-    `("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh]) AND (${
+    // Basic search for AI in radiology journals
+    `("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh] OR "Machine Learning"[Mesh]) AND (${
       CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
     })`,
     
-    `("Machine Learning"[Mesh] OR "Neural Networks, Computer"[Mesh]) AND (${
+    // Search for clinical papers
+    `("Artificial Intelligence" OR "Deep Learning" OR "Machine Learning") AND (${
       CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
-    }) AND ("Clinical Trial"[Publication Type] OR "Observational Study"[Publication Type] OR "Validation Study"[Publication Type])`,
+    }) AND ("Clinical Trial"[Publication Type] OR "Validation Studies"[Publication Type])`,
     
-    // Additional search for clinical implementation papers
-    `("Artificial Intelligence"[Mesh] OR "Machine Learning"[Mesh]) AND (${
+    // Broader search with keywords
+    `(artificial intelligence[Title/Abstract] OR machine learning[Title/Abstract]) AND (${
       CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
-    }) AND ("Clinical Study"[Publication Type] OR "Evaluation Study"[Publication Type])`
+    })`
   ], []);
 
   // Enhanced clinical relevance checking
@@ -168,31 +340,6 @@ function App() {
       return false;
     }
 
-    const clinicalTerms = {
-      required: [
-        'patient', 'clinical', 'diagnostic', 'diagnosis', 'treatment',
-        'hospital', 'medical', 'healthcare', 'radiologist'
-      ],
-      modalities: [
-        'mri', 'ct', 'ultrasound', 'x-ray', 'radiograph', 'imaging',
-        'pet', 'spect', 'mammogram', 'tomography'
-      ],
-      aiTerms: [
-        'deep learning', 'machine learning', 'artificial intelligence',
-        'neural network', 'cnn', 'computer-aided', 'automated'
-      ],
-      clinicalContext: [
-        'diagnosis', 'prognosis', 'screening', 'detection', 'segmentation',
-        'classification', 'prediction', 'outcome', 'survival', 'mortality',
-        'assessment', 'evaluation', 'analysis', 'interpretation'
-      ],
-      clinicalStudyTypes: [
-        'retrospective', 'prospective', 'cohort', 'clinical trial',
-        'validation study', 'evaluation study', 'patient study',
-        'multi-center', 'single-center'
-      ]
-    };
-
     const text = (
       article.title + ' ' + 
       article.abstract + ' ' + 
@@ -200,24 +347,27 @@ function App() {
       (article.publicationType || []).join(' ')
     ).toLowerCase();
 
-    // Must have at least one term from each category
-    const hasRequired = clinicalTerms.required.some(term => text.includes(term));
-    const hasModality = clinicalTerms.modalities.some(term => text.includes(term));
-    const hasAI = clinicalTerms.aiTerms.some(term => text.includes(term));
-    const hasClinicalContext = clinicalTerms.clinicalContext.some(term => text.includes(term));
-    const hasStudyType = clinicalTerms.clinicalStudyTypes.some(term => text.includes(term));
+    // Simplified criteria
+    const hasAI = text.includes('artificial intelligence') || 
+                  text.includes('machine learning') || 
+                  text.includes('deep learning') ||
+                  text.includes('neural network');
+
+    const hasImaging = text.includes('imaging') ||
+                      text.includes('radiology') ||
+                      text.includes('radiological') ||
+                      text.includes('radiographic');
 
     // Check for explicit non-clinical indicators
     const nonClinicalIndicators = [
-      'simulation', 'phantom', 'in-vitro', 'proof of concept',
-      'theoretical', 'framework', 'review article', 'survey',
-      'systematic review', 'meta-analysis', 'opinion', 'editorial',
-      'letter to the editor', 'technical note'
+      'letter to editor',
+      'editorial',
+      'erratum',
+      'retraction'
     ];
     const isNonClinical = nonClinicalIndicators.some(term => text.includes(term));
 
-    return hasRequired && hasModality && hasAI && hasClinicalContext && 
-           hasStudyType && !isNonClinical;
+    return hasAI && hasImaging && !isNonClinical;
   };
 
   // Enhanced article processing
@@ -256,103 +406,45 @@ function App() {
 
   // Update fetchArticles dependencies
   const fetchArticles = useCallback(async () => {
-    const now = new Date();
-    const { firstDay, lastDay } = getWeekDates(now);
-    const prevWeek = new Date(firstDay);
-    prevWeek.setDate(prevWeek.getDate() - 7);
+    setLoading(true);
+    console.log('Fetching articles from multiple sources...');
     
-    const mindate = formatDate(prevWeek);
-    const maxdate = formatDate(lastDay);
-    
-    // Get existing articles from localStorage
-    const storedArticles = JSON.parse(localStorage.getItem('articles') || '[]');
-    let combined = [...storedArticles];
-
     try {
-      for (const term of searchTerms) {
-        try {
-          // Update retmax to get more articles per week
-          const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&retmax=200&sort=date&datetype=pdat&mindate=${mindate}&maxdate=${maxdate}&retmode=json&usehistory=y`;
-          const searchProxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(searchUrl);
-          const searchRes = await axios.get(searchProxyUrl);
-          
-          if (!searchRes.data || !searchRes.data.esearchresult) {
-            console.warn(`Invalid response for search term: ${term}`);
-            continue;
-          }
+      // Fetch from both sources in parallel
+      const [pubmedArticles, scholarArticles] = await Promise.all([
+        fetchPubMedArticles(),
+        fetchGoogleScholar()
+      ]);
 
-          const idList = searchRes.data.esearchresult.idlist || [];
-          if (idList.length > 0) {
-            const detailsUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${idList.join(",")}&retmode=json`;
-            const detailsProxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(detailsUrl);
-            const detailsRes = await axios.get(detailsProxyUrl);
+      // Combine and deduplicate articles
+      const combined = [...pubmedArticles];
+      
+      scholarArticles.forEach(scholarArticle => {
+        // Check if article already exists (by title similarity)
+        const isDuplicate = combined.some(article => 
+          stringSimilarity.compareTwoStrings(
+            article.title.toLowerCase(),
+            scholarArticle.title.toLowerCase()
+          ) > 0.8
+        );
 
-            if (!detailsRes.data || !detailsRes.data.result) {
-              console.warn('Invalid details response');
-              continue;
-            }
-
-            // Process and add new articles
-            Object.values(detailsRes.data.result)
-              .filter(item => item?.uid)
-              .forEach(item => {
-                const newArticle = processArticle(item, now);
-                
-                // Only add if not already in combined
-                if (!combined.some(existing => existing.title === newArticle.title)) {
-                  combined.push(newArticle);
-                }
-              });
-          }
-        } catch (termError) {
-          console.warn(`Error processing term "${term}":`, termError);
-          continue;
+        if (!isDuplicate) {
+          combined.push(scholarArticle);
         }
-      }
+      });
 
       // Sort by date (newest first)
-      combined.sort((a, b) => new Date(b.dateIndexed) - new Date(a.dateIndexed));
+      combined.sort((a, b) => new Date(b.publicationDate) - new Date(a.publicationDate));
 
-      // Store in localStorage
-      localStorage.setItem('articles', JSON.stringify(combined));
-
-      if (combined.length === 0) {
-        setError("No articles found for the specified criteria.");
-        return;
-      }
-
-      // Update state with all articles
       setArticles(combined);
-
-      // Update subdomain stats
-      const stats = Object.keys(radiologySubdomains).reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
-      combined.forEach(article => {
-        const subdomain = categorizeArticle(article);
-        stats[subdomain] = (stats[subdomain] || 0) + 1;
-        article.subdomain = subdomain;
-      });
-
-      setSubdomainStats(stats);
-      setError(null);
-
-      // Store with date information
-      const articlesByWeek = {};
-      combined.forEach(article => {
-        const pubDate = new Date(article.publicationDate);
-        const { firstDay } = getWeekDates(pubDate);
-        const weekKey = firstDay.toISOString().split('T')[0];
-        articlesByWeek[weekKey] = articlesByWeek[weekKey] || [];
-        articlesByWeek[weekKey].push(article);
-      });
-
-      localStorage.setItem('articlesByWeek', JSON.stringify(articlesByWeek));
-    } catch (e) {
-      console.error("Error fetching articles:", e);
+      updateStats(combined);
+    } catch (error) {
+      console.error('Error fetching articles:', error);
       setError("Failed to fetch articles. Please try again later.");
     } finally {
       setLoading(false);
     }
-  }, [processArticle, searchTerms]);
+  }, [fetchPubMedArticles, fetchGoogleScholar]);
 
   // Enhanced data refresh logic
   const checkAndRefresh = useCallback(() => {
@@ -391,6 +483,39 @@ function App() {
       window.removeEventListener('focus', handleFocus);
     };
   }, [fetchArticles, checkAndRefresh, lastRefresh]);
+
+  // Update the useEffect hook
+  useEffect(() => {
+    const initializeArticles = async () => {
+      setLoading(true);
+      try {
+        // Try to get cached articles first
+        const cached = getCachedArticles();
+        if (cached) {
+          setArticles(cached);
+          updateStats(cached);
+          return;
+        }
+
+        // If no cache, fetch new articles
+        const articles = await fetchArticles();
+        
+        // Cache the results
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          timestamp: Date.now(),
+          data: articles
+        }));
+        
+      } catch (error) {
+        console.error('Error initializing articles:', error);
+        setError('Failed to load articles. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeArticles();
+  }, [fetchArticles]);
 
   // Add this FAQ data
   const faqData = [
@@ -587,11 +712,6 @@ function App() {
       className="article-card" 
       tabIndex="0"
       onClick={() => window.open(article.link, '_blank', 'noopener,noreferrer')}
-      onKeyPress={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          window.open(article.link, '_blank', 'noopener,noreferrer');
-        }
-      }}
     >
       <span className="article-category" role="tag">
         {article.subdomain || 'General'}
@@ -600,7 +720,10 @@ function App() {
         {article.title}
       </h3>
       <div className="article-meta">
-        <span className="article-journal">{article.journal}</span>
+        <span className="article-journal">
+          {article.journal || article.source}
+          {article.citations > 0 && ` • ${article.citations} citations`}
+        </span>
         <time dateTime={article.publicationDate}>
           {new Date(article.publicationDate).toLocaleDateString()}
         </time>
@@ -638,92 +761,103 @@ function App() {
         activeSection={activeSection} 
       />
       <div className="dashboard">
-        {activeSection === 'overview' && (
-          <>
-            <HeroSection stats={{
-              totalArticles: articles.length,
-              topSubdomain: Object.entries(subdomainStats)
-                .reduce((max, [key, value]) => 
-                  value > max.value ? {key, value} : max, 
-                  {key: '', value: 0}
-                ).key.split('/')[0],
-              avgAuthors: (articles.reduce((acc, curr) => 
-                acc + (curr.authors ? curr.authors.length : 0), 0) / articles.length || 0)
-                .toFixed(1)
-            }} />
-          </>
-        )}
-
-        {activeSection === 'statistics' && (
-          <>
-            <div className="charts-section">
-              <h2>Distribution by Radiology Subdomain</h2>
-              <div className="chart-container">
-                <Pie data={chartData} options={chartOptions} />
-              </div>
-            </div>
-            <WeeklyStats articles={articles} />
-          </>
-        )}
-
-        {activeSection === 'publications' && (
-          <>
-            <div className="filters-container">
-              <div className="date-range-picker">
-                <DatePicker
-                  selectsRange={true}
-                  startDate={startDate}
-                  endDate={endDate}
-                  onChange={(update) => setDateRange(update)}
-                  isClearable={true}
-                  placeholderText="Select date range"
-                  className="date-picker"
-                />
-              </div>
-              <div className="search-container">
-                <input
-                  className="search-input"
-                  type="text"
-                  value={searchTerm}
-                  placeholder="Search articles..."
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="subdomain-filters">
-              {Object.keys(radiologySubdomains).map(domain => (
-                <button
-                  key={domain}
-                  className={`subdomain-filter ${selectedSubdomain === domain ? 'active' : ''}`}
-                  onClick={() => setSelectedSubdomain(selectedSubdomain === domain ? null : domain)}
-                >
-                  {domain}
-                </button>
-              ))}
-            </div>
-
-            <section className="articles-section">
-              <div className="articles-grid">
-                {currentArticles.map((article, index) => (
-                  <ArticleCard key={index} article={article} />
-                ))}
-              </div>
-              {/* Add pagination here */}
-            </section>
-          </>
-        )}
-
-        {activeSection === 'help' && (
-          <div className="faq-section">
-            <h2>Frequently Asked Questions</h2>
-            {faqData.map((faq, index) => (
-              <div key={index} className="faq-item">
-                <div className="faq-question">{faq.question}</div>
-                <div className="faq-answer">{faq.answer}</div>
-              </div>
-            ))}
+        {loading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading articles...</p>
           </div>
+        ) : error ? (
+          <div className="error-state">
+            <p>{error}</p>
+            <button onClick={() => fetchArticles()}>Retry</button>
+          </div>
+        ) : (
+          <>
+            {activeSection === 'overview' && (
+              <>
+                <HeroSection stats={{
+                  totalArticles: articles.length,
+                  topSubdomain: Object.entries(subdomainStats)
+                    .reduce((max, [key, value]) => 
+                      value > max.value ? {key, value} : max, 
+                      {key: '', value: 0}
+                    ).key.split('/')[0],
+                  avgAuthors: (articles.reduce((acc, curr) => 
+                    acc + (curr.authors ? curr.authors.length : 0), 0) / articles.length || 0)
+                    .toFixed(1)
+                }} />
+              </>
+            )}
+
+            {activeSection === 'statistics' && (
+              <>
+                <div className="charts-section">
+                  <h2>Distribution by Radiology Subdomain</h2>
+                  <div className="chart-container">
+                    <Pie data={chartData} options={chartOptions} />
+                  </div>
+                </div>
+                <WeeklyStats articles={articles} />
+              </>
+            )}
+
+            {activeSection === 'publications' && (
+              <>
+                <div className="filters-container">
+                  <div className="date-range-picker">
+                    <DatePicker
+                      selectsRange={true}
+                      startDate={startDate}
+                      endDate={endDate}
+                      onChange={(update) => setDateRange(update)}
+                      isClearable={true}
+                      placeholderText="Select date range"
+                      className="date-picker"
+                    />
+                  </div>
+                  <div className="search-container">
+                    <input
+                      className="search-input"
+                      type="text"
+                      value={searchTerm}
+                      placeholder="Search articles..."
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="subdomain-filters">
+                  {Object.keys(radiologySubdomains).map(domain => (
+                    <button
+                      key={domain}
+                      className={`subdomain-filter ${selectedSubdomain === domain ? 'active' : ''}`}
+                      onClick={() => setSelectedSubdomain(domain)}
+                    >
+                      {domain}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="articles-container">
+                  {currentArticles.map(article => (
+                    <ArticleCard key={article.uid} article={article} />
+                  ))}
+                </div>
+
+                <div className="pagination">
+                  {Array.from({ length: pageCount }, (_, i) => (
+                    <button
+                      key={i + 1}
+                      className={`page-button ${currentPage === i + 1 ? 'active' : ''}`}
+                      onClick={() => setCurrentPage(i + 1)}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         )}
       </div>
     </>
