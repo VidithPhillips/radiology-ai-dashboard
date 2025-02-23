@@ -605,6 +605,22 @@ function App() {
     );
   };
 
+  // Update the article rendering section
+  const ArticleCard = ({ article }) => (
+    <div className="article-card">
+      <span className="article-category">
+        {article.subdomain || 'General'}
+      </span>
+      <h3 className="article-title">
+        {article.title}
+      </h3>
+      <div className="article-meta">
+        <span className="article-journal">{article.journal}</span>
+        <span>{new Date(article.publicationDate).toLocaleDateString()}</span>
+      </div>
+    </div>
+  );
+
   return (
     <div className="dashboard">
       <div className="dashboard-header">
@@ -702,49 +718,17 @@ function App() {
             ))}
           </div>
 
-          <div className="articles-section">
-            <h2>
-              Articles ({getFilteredArticles().length})
-              {selectedSubdomain && ` in ${selectedSubdomain}`}
-              {(startDate || endDate) && ' for selected date range'}
-            </h2>
-            {loading ? (
-              <div className="loading-indicator">
-                <div className="loading-spinner"></div>
-                <span>Loading articles...</span>
-              </div>
-            ) : (
-              <>
-                {currentArticles.map((article, idx) => (
-                  <div key={idx} className="article-card">
-                    <div className="article-subdomain">{article.subdomain}</div>
-                    <h4>{article.title}</h4>
-                    <p><strong>Authors:</strong> {article.authors.join(", ")}</p>
-                    <p><strong>Journal:</strong> {article.journal} ({article.year})</p>
-                    <a href={article.link} target="_blank" rel="noopener noreferrer">
-                      Read Paper
-                    </a>
-                  </div>
-                ))}
-                
-                <div className="pagination">
-                  <button 
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </button>
-                  <span>Page {currentPage} of {pageCount}</span>
-                  <button 
-                    onClick={() => setCurrentPage(p => Math.min(pageCount, p + 1))}
-                    disabled={currentPage === pageCount}
-                  >
-                    Next
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <section className="articles-section">
+            <div className="articles-header">
+              <h2 className="articles-title">Recent Publications</h2>
+            </div>
+            <div className="articles-grid">
+              {currentArticles.map((article, index) => (
+                <ArticleCard key={index} article={article} />
+              ))}
+            </div>
+            {/* Pagination */}
+          </section>
 
           <WeeklyStats articles={articles} />
 
