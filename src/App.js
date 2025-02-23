@@ -13,6 +13,26 @@ import * as tf from '@tensorflow/tfjs';
 import * as cheerio from 'cheerio';
 import stringSimilarity from 'string-similarity';
 
+// Add these utility functions at the top, after imports
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const fetchWithRetry = async (url, options = {}, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await axios(url, {
+        ...options,
+        timeout: 10000 // 10 second timeout
+      });
+      await delay(1500);
+      return response;
+    } catch (error) {
+      console.error(`Attempt ${i + 1} failed:`, error.message);
+      if (i === retries - 1) throw error;
+      await delay(2000 * Math.pow(2, i));
+    }
+  }
+};
+
 // Define radiology subdomains and their related keywords
 const radiologySubdomains = {
   'Neuroradiology': ['brain', 'neurological', 'spine', 'head', 'neck', 'neural', 'neuro'],
@@ -137,152 +157,8 @@ const GOOGLE_SCHOLAR_CONFIG = {
   yearRange: 1
 };
 
-// Update the fetchGoogleScholar function
-const fetchGoogleScholar = useCallback(async () => {
-  console.log('Fetching from Google Scholar...');
-  
-  try {
-    const searchUrl = `${GOOGLE_SCHOLAR_CONFIG.baseUrl}${encodeURIComponent(
-      `https://scholar.google.com/scholar?q=${
-        encodeURIComponent(GOOGLE_SCHOLAR_CONFIG.searchQuery)
-      }&as_ylo=${new Date().getFullYear() - GOOGLE_SCHOLAR_CONFIG.yearRange}`
-    )}`;
-
-    const response = await axios.get(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-
-    const $ = cheerio.load(response.data);
-    const articles = [];
-
-    $('.gs_r').each((i, element) => {
-      const $element = $(element);
-      
-      const article = {
-        title: $element.find('.gs_rt').text().trim(),
-        authors: $element.find('.gs_a').text().trim(),
-        abstract: $element.find('.gs_rs').text().trim(),
-        link: $element.find('.gs_rt a').attr('href'),
-        citations: parseInt($element.find('.gs_fl a:contains("Cited by")').text().match(/\d+/) || '0'),
-        publicationDate: new Date().toISOString(), // Approximate date
-        source: 'Google Scholar'
-      };
-
-      // Only include if it matches our clinical criteria
-      if (isClinicalPaper(article)) {
-        articles.push(article);
-      }
-    });
-
-    return articles;
-  } catch (error) {
-    console.error('Error fetching from Google Scholar:', error);
-    return [];
-  }
-}, []);
-
-// Add these utility functions at the top
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-const fetchWithRetry = async (url, options = {}, retries = 3) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const response = await axios(url, {
-        ...options,
-        timeout: 10000 // 10 second timeout
-      });
-      
-      // Add longer delay between requests
-      await delay(1500);
-      return response;
-    } catch (error) {
-      console.error(`Attempt ${i + 1} failed:`, error.message);
-      if (i === retries - 1) throw error;
-      // Longer exponential backoff
-      await delay(2000 * Math.pow(2, i));
-    }
-  }
-};
-
-// Update the fetchPubMedArticles function
-const fetchPubMedArticles = useCallback(async () => {
-  const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
-  
-  try {
-    // Get current date and 30 days ago
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
-    
-    const searchParams = {
-      db: 'pubmed',
-      retmax: 100,
-      retmode: 'json',
-      sort: 'date',
-      // Remove API key requirement
-      tool: 'radiology-ai-dashboard',
-      email: 'user@example.com', // Required by PubMed for tracking
-      mindate: thirtyDaysAgo.toISOString().split('T')[0],
-      maxdate: new Date().toISOString().split('T')[0]
-    };
-
-    const articles = [];
-    
-    // Use a public CORS proxy
-    const corsProxy = 'https://corsproxy.io/?';
-    
-    // Fetch articles for each search term with proper rate limiting
-    for (const term of searchTerms) {
-      const searchUrl = `${corsProxy}${encodeURIComponent(
-        `${baseUrl}/esearch.fcgi?${new URLSearchParams({
-          ...searchParams,
-          term: term
-        })}`
-      )}`;
-
-      const searchResponse = await fetchWithRetry(searchUrl);
-      const ids = searchResponse.data.esearchresult.idlist;
-
-      if (ids.length > 0) {
-        // Fetch details in batches of 5 (reduced from 10 to avoid rate limits)
-        for (let i = 0; i < ids.length; i += 5) {
-          const batchIds = ids.slice(i, i + 5);
-          const summaryUrl = `${corsProxy}${encodeURIComponent(
-            `${baseUrl}/esummary.fcgi?${new URLSearchParams({
-              db: 'pubmed',
-              id: batchIds.join(','),
-              retmode: 'json',
-              tool: 'radiology-ai-dashboard',
-              email: 'user@example.com'
-            })}`
-          )}`;
-
-          // Add longer delay between requests
-          await delay(1000);
-          
-          const detailsResponse = await fetchWithRetry(summaryUrl);
-          
-          Object.values(detailsResponse.data.result)
-            .filter(item => item?.uid)
-            .forEach(item => {
-              const processedArticle = processArticle(item, new Date());
-              if (processedArticle) {
-                articles.push(processedArticle);
-              }
-            });
-        }
-      }
-    }
-
-    return articles;
-  } catch (error) {
-    console.error('Error fetching from PubMed:', error);
-    return [];
-  }
-}, [searchTerms, processArticle]);
-
 function App() {
+  // State declarations first
   const [articles, setArticles] = useState([]);
   const [subdomainStats, setSubdomainStats] = useState({});
   const [loading, setLoading] = useState(true);
@@ -313,27 +189,31 @@ function App() {
     return null;
   };
 
-  // Update search terms to target clinical radiology journals
+  // Move searchTerms inside App
   const searchTerms = useMemo(() => [
-    // Basic search for AI in radiology journals
     `("Artificial Intelligence"[Mesh] OR "Deep Learning"[Mesh] OR "Machine Learning"[Mesh]) AND (${
       CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
     })`,
-    
-    // Search for clinical papers
     `("Artificial Intelligence" OR "Deep Learning" OR "Machine Learning") AND (${
       CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
     }) AND ("Clinical Trial"[Publication Type] OR "Validation Studies"[Publication Type])`,
-    
-    // Broader search with keywords
     `(artificial intelligence[Title/Abstract] OR machine learning[Title/Abstract]) AND (${
       CLINICAL_RADIOLOGY_JOURNALS.map(journal => `"${journal}"[Journal]`).join(' OR ')
     })`
   ], []);
 
-  // Enhanced clinical relevance checking
-  const isClinicalPaper = (article) => {
-    // Check if journal is in our approved list
+  // Add updateStats function
+  const updateStats = useCallback((articles) => {
+    const stats = {};
+    articles.forEach(article => {
+      const subdomain = categorizeArticle(article);
+      stats[subdomain] = (stats[subdomain] || 0) + 1;
+    });
+    setSubdomainStats(stats);
+  }, []);
+
+  // Add isClinicalPaper function
+  const isClinicalPaper = useCallback((article) => {
     if (!CLINICAL_RADIOLOGY_JOURNALS.some(journal => 
       article.journal.toLowerCase().includes(journal.toLowerCase())
     )) {
@@ -342,12 +222,9 @@ function App() {
 
     const text = (
       article.title + ' ' + 
-      article.abstract + ' ' + 
-      article.meshTerms.join(' ') + ' ' +
-      (article.publicationType || []).join(' ')
+      article.abstract
     ).toLowerCase();
 
-    // Simplified criteria
     const hasAI = text.includes('artificial intelligence') || 
                   text.includes('machine learning') || 
                   text.includes('deep learning') ||
@@ -358,7 +235,6 @@ function App() {
                       text.includes('radiological') ||
                       text.includes('radiographic');
 
-    // Check for explicit non-clinical indicators
     const nonClinicalIndicators = [
       'letter to editor',
       'editorial',
@@ -368,9 +244,9 @@ function App() {
     const isNonClinical = nonClinicalIndicators.some(term => text.includes(term));
 
     return hasAI && hasImaging && !isNonClinical;
-  };
+  }, []);
 
-  // Enhanced article processing
+  // Add processArticle function
   const processArticle = useCallback((item, now) => {
     const pubDateStr = item.pubdate || item.sortpubdate;
     let pubDate;
@@ -380,7 +256,6 @@ function App() {
       pubDate = now;
     }
 
-    // Enhanced metadata extraction
     const metadata = {
       title: item.title || "No Title",
       abstract: item.abstract || "",
@@ -396,13 +271,130 @@ function App() {
       dateIndexed: new Date().toISOString()
     };
 
-    // Only process if it's a clinical paper
-    if (!isClinicalPaper(metadata)) {
-      return null;
-    }
+    return isClinicalPaper(metadata) ? metadata : null;
+  }, [isClinicalPaper]);
 
-    return metadata;
-  }, []);
+  // Move fetchGoogleScholar inside App
+  const fetchGoogleScholar = useCallback(async () => {
+    console.log('Fetching from Google Scholar...');
+    
+    try {
+      const searchUrl = `${GOOGLE_SCHOLAR_CONFIG.baseUrl}${encodeURIComponent(
+        `https://scholar.google.com/scholar?q=${
+          encodeURIComponent(GOOGLE_SCHOLAR_CONFIG.searchQuery)
+        }&as_ylo=${new Date().getFullYear() - GOOGLE_SCHOLAR_CONFIG.yearRange}`
+      )}`;
+
+      const response = await axios.get(searchUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      const $ = cheerio.load(response.data);
+      const articles = [];
+
+      $('.gs_r').each((i, element) => {
+        const $element = $(element);
+        
+        const article = {
+          title: $element.find('.gs_rt').text().trim(),
+          authors: $element.find('.gs_a').text().trim(),
+          abstract: $element.find('.gs_rs').text().trim(),
+          link: $element.find('.gs_rt a').attr('href'),
+          citations: parseInt($element.find('.gs_fl a:contains("Cited by")').text().match(/\d+/) || '0'),
+          publicationDate: new Date().toISOString(), // Approximate date
+          source: 'Google Scholar'
+        };
+
+        // Only include if it matches our clinical criteria
+        if (isClinicalPaper(article)) {
+          articles.push(article);
+        }
+      });
+
+      return articles;
+    } catch (error) {
+      console.error('Error fetching from Google Scholar:', error);
+      return [];
+    }
+  }, [isClinicalPaper]);
+
+  // Move fetchPubMedArticles inside App
+  const fetchPubMedArticles = useCallback(async () => {
+    const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+    
+    try {
+      // Get current date and 30 days ago
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+      
+      const searchParams = {
+        db: 'pubmed',
+        retmax: 100,
+        retmode: 'json',
+        sort: 'date',
+        // Remove API key requirement
+        tool: 'radiology-ai-dashboard',
+        email: 'user@example.com', // Required by PubMed for tracking
+        mindate: thirtyDaysAgo.toISOString().split('T')[0],
+        maxdate: new Date().toISOString().split('T')[0]
+      };
+
+      const articles = [];
+      
+      // Use a public CORS proxy
+      const corsProxy = 'https://corsproxy.io/?';
+      
+      // Fetch articles for each search term with proper rate limiting
+      for (const term of searchTerms) {
+        const searchUrl = `${corsProxy}${encodeURIComponent(
+          `${baseUrl}/esearch.fcgi?${new URLSearchParams({
+            ...searchParams,
+            term: term
+          })}`
+        )}`;
+
+        const searchResponse = await fetchWithRetry(searchUrl);
+        const ids = searchResponse.data.esearchresult.idlist;
+
+        if (ids.length > 0) {
+          // Fetch details in batches of 5 (reduced from 10 to avoid rate limits)
+          for (let i = 0; i < ids.length; i += 5) {
+            const batchIds = ids.slice(i, i + 5);
+            const summaryUrl = `${corsProxy}${encodeURIComponent(
+              `${baseUrl}/esummary.fcgi?${new URLSearchParams({
+                db: 'pubmed',
+                id: batchIds.join(','),
+                retmode: 'json',
+                tool: 'radiology-ai-dashboard',
+                email: 'user@example.com'
+              })}`
+            )}`;
+
+            // Add longer delay between requests
+            await delay(1000);
+            
+            const detailsResponse = await fetchWithRetry(summaryUrl);
+            
+            Object.values(detailsResponse.data.result)
+              .filter(item => item?.uid)
+              .forEach(item => {
+                const processedArticle = processArticle(item, new Date());
+                if (processedArticle) {
+                  articles.push(processedArticle);
+                }
+              });
+          }
+        }
+      }
+
+      return articles;
+    } catch (error) {
+      console.error('Error fetching from PubMed:', error);
+      return [];
+    }
+  }, [searchTerms, processArticle]);
 
   // Update fetchArticles dependencies
   const fetchArticles = useCallback(async () => {
@@ -578,10 +570,10 @@ function App() {
         '#3b82f6',  // Blue
         '#6366f1',  // Indigo
         '#8b5cf6',  // Purple
-        '#d946ef',  // Fuchsia
         '#ec4899',  // Pink
         '#f43f5e',  // Rose
-        '#10b981'   // Emerald
+        '#f97316',  // Orange
+        '#eab308'   // Yellow
       ]
     }]
   };
@@ -594,45 +586,12 @@ function App() {
       legend: {
         position: 'right',
         labels: {
-          color: '#ffffff', // Make text white
+          color: '#ffffff',
           font: {
             size: 14,
             family: "'Open Sans', sans-serif"
           },
           padding: 20
-        }
-      },
-      tooltip: {
-        backgroundColor: 'rgba(17, 24, 39, 0.95)', // Dark background
-        titleColor: '#ffffff',
-        bodyColor: '#ffffff',
-        bodyFont: {
-          family: "'Open Sans', sans-serif"
-        },
-        padding: 12,
-        borderColor: '#1f2937',
-        borderWidth: 1
-      }
-    },
-    scales: {
-      x: {
-        ticks: {
-          font: {
-            size: 14
-          }
-        },
-        grid: {
-          display: false
-        }
-      },
-      y: {
-        ticks: {
-          font: {
-            size: 14
-          }
-        },
-        grid: {
-          color: 'rgba(0, 0, 0, 0.1)'
         }
       }
     }
